@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { config } from '../config/config';
 import { asyncHandler, createError } from '../middleware/error-handler';
 import { logger } from '../utils/logger';
@@ -93,11 +93,7 @@ authRouter.post('/google', asyncHandler(async (req, res) => {
     const token = jwt.sign(
       { user },
       config.jwtSecret,
-      { 
-        expiresIn: config.jwtExpiresIn,
-        issuer: 'drivelah-admin-bff',
-        audience: 'drivelah-admin-portal'
-      }
+      { expiresIn: config.jwtExpiresIn as any }
     );
 
     logger.info('User authenticated successfully', {
@@ -162,11 +158,7 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
     const newToken = jwt.sign(
       { user: decoded.user },
       config.jwtSecret,
-      { 
-        expiresIn: config.jwtExpiresIn,
-        issuer: 'drivelah-admin-bff',
-        audience: 'drivelah-admin-portal'
-      }
+      { expiresIn: config.jwtExpiresIn as any }
     );
 
     logger.info('Token refreshed successfully', {

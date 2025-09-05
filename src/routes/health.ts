@@ -51,7 +51,7 @@ healthRouter.get('/', asyncHandler(async (req, res) => {
 // GET /api/health/ready - Readiness probe (for Kubernetes/Docker)
 healthRouter.get('/ready', asyncHandler(async (req, res) => {
   // Check if all critical services are available
-  const checks = [];
+  const checks: Array<{service: string, status: string, error?: string}> = [];
 
   // Check AI Agents API
   try {
