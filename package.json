@@ -5,12 +5,15 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "tsc && echo 'Build completed successfully' && ls -la dist/",
     "start": "node dist/server.js",
     "start:dev": "ts-node src/server.ts",
     "lint": "eslint src --ext .ts",
     "test": "jest",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "render-build": "npm run build",
+    "render-start": "node dist/server.js",
+    "heroku-postbuild": "npm run build"
   },
   "keywords": [
     "drivelah",

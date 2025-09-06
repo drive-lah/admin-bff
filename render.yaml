@@ -3,8 +3,8 @@ services:
     name: drivelah-admin-bff
     env: node
     plan: starter
-    buildCommand: npm ci && npm run build && ls -la && ls -la dist/
-    startCommand: node dist/server.js
+    buildCommand: npm run render-build
+    startCommand: npm run render-start
     healthCheckPath: /api/health/live
     envVars:
       - key: NODE_ENV
