@@ -13,7 +13,8 @@
     "type-check": "tsc --noEmit",
     "render-build": "npm run build",
     "render-start": "node dist/server.js",
-    "heroku-postbuild": "npm run build"
+    "heroku-postbuild": "npm run build",
+    "postinstall": "npm run build"
   },
   "keywords": [
     "drivelah",
