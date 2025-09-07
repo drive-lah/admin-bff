@@ -7,8 +7,8 @@ import { APIResponse } from '../types/api';
 
 export const aiAgentsRouter = Router();
 
-// All AI agents routes require 'ai-agents' module access
-aiAgentsRouter.use(requireModule('ai-agents'));
+// TEMPORARY: Removed module access restriction - all users can access AI agents
+// aiAgentsRouter.use(requireModule('ai-agents'));
 
 // GET /api/admin/ai-agents - Get all agents
 aiAgentsRouter.get('/', asyncHandler(async (req, res) => {

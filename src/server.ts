@@ -26,6 +26,7 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "https:"],
     },
   },
+  crossOriginOpenerPolicy: { policy: "unsafe-none" }, // Allow Google OAuth popups
 }));
 
 // Rate limiting

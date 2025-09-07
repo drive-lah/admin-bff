@@ -11,43 +11,12 @@ export const authRouter = Router();
 const ALLOWED_DOMAINS = ['drivelah.sg', 'drivemate.au'];
 
 // Define user permissions based on email
+// TEMPORARY: All users get full admin access (remove restrictions for now)
 const getUserPermissions = (email: string) => {
-  // Admin users
-  if (email.includes('admin@') || email === 'gaurav@drivelah.sg' || email === 'gaurav@drivemate.au') {
-    return {
-      modules: ['users', 'listings', 'transactions', 'resolution', 'claims', 'host-management', 'ai-agents', 'tech'],
-      role: 'admin' as const
-    };
-  }
-  
-  // Manager users
-  if (email.includes('manager@') || email.includes('ops@')) {
-    return {
-      modules: ['users', 'listings', 'transactions', 'resolution', 'host-management'],
-      role: 'manager' as const
-    };
-  }
-  
-  // Finance team
-  if (email.includes('finance@') || email.includes('accounting@')) {
-    return {
-      modules: ['transactions', 'claims'],
-      role: 'viewer' as const
-    };
-  }
-  
-  // Support team
-  if (email.includes('support@') || email.includes('cs@')) {
-    return {
-      modules: ['resolution', 'users'],
-      role: 'viewer' as const
-    };
-  }
-  
-  // Default viewer access
+  // Give everyone full admin access for now - we'll implement proper permissions later
   return {
-    modules: ['users'],
-    role: 'viewer' as const
+    modules: ['users', 'listings', 'transactions', 'resolution', 'claims', 'host-management', 'ai-agents', 'tech'],
+    role: 'admin' as const
   };
 };
 
