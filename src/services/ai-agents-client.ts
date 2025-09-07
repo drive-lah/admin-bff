@@ -135,7 +135,7 @@ export class AIAgentsClient {
 
   async checkHealth(): Promise<{ status: string; timestamp: string }> {
     try {
-      const response = await this.client.get('/monitor/health');
+      const response = await this.client.get('/api/monitor/health');
       return response.data;
     } catch (error: any) {
       logger.error('AI Agents API health check failed', { error: error.message });
