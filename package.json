@@ -12,7 +12,7 @@
     "test": "jest",
     "type-check": "tsc --noEmit",
     "render-build": "echo 'Skipping TypeScript compilation, using ts-node instead'",
-    "render-start": "npx ts-node src/server.ts",
+    "render-start": "./node_modules/.bin/ts-node src/server.ts",
     "heroku-postbuild": "npm run build",
     "postinstall": "echo 'Dependencies installed, running build...' && npm run build"
   },
