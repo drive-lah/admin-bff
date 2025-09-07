@@ -59,22 +59,52 @@ aiAgentsRouter.put('/:id', asyncHandler(async (req, res) => {
   res.json(response);
 }));
 
-// POST /api/admin/ai-agents/:id/actions - Perform action on agent
-aiAgentsRouter.post('/:id/actions', asyncHandler(async (req, res) => {
+// GET /api/admin/ai-agents/:id/analytics - Get agent analytics
+aiAgentsRouter.get('/:id/analytics', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const actionData = req.body;
+  const analytics = await aiAgentsClient.getAgentAnalytics(id);
   
-  logger.info('Performing agent action', { 
+  const response: APIResponse = {
+    data: analytics,
+    message: 'Agent analytics retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));
+
+// GET /api/admin/ai-agents/:id/actions - Get available actions
+aiAgentsRouter.get('/:id/actions', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const actions = await aiAgentsClient.getAgentActions(id);
+  
+  const response: APIResponse = {
+    data: actions,
+    message: 'Agent actions retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));
+
+// POST /api/admin/ai-agents/:id/actions/:actionId/execute - Execute action on agent
+aiAgentsRouter.post('/:id/actions/:actionId/execute', asyncHandler(async (req, res) => {
+  const { id, actionId } = req.params;
+  const parameters = req.body;
+  
+  logger.info('Executing agent action', { 
     agentId: id, 
+    actionId,
     userId: req.user?.id, 
-    action: actionData.action 
+    parameters
   });
   
+  const actionData = { action: actionId, parameters };
   const result = await aiAgentsClient.performAgentAction(id, actionData);
   
   const response: APIResponse = {
     data: result,
-    message: `Action '${actionData.action}' performed successfully`,
+    message: `Action '${actionId}' executed successfully`,
     timestamp: new Date().toISOString(),
   };
   
@@ -97,12 +127,11 @@ aiAgentsRouter.get('/:id/logs', asyncHandler(async (req, res) => {
   res.json(response);
 }));
 
-// GET /api/admin/ai-agents/:id/metrics - Get agent metrics
+// GET /api/admin/ai-agents/:id/metrics - Get agent metrics (alias for analytics)
 aiAgentsRouter.get('/:id/metrics', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const timeRange = req.query.timeRange as string || '24h';
   
-  const metrics = await aiAgentsClient.getAgentMetrics(id, timeRange);
+  const metrics = await aiAgentsClient.getAgentAnalytics(id);
   
   const response: APIResponse = {
     data: metrics,

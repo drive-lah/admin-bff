@@ -60,7 +60,7 @@ export class AIAgentsClient {
 
   async getAgents(): Promise<Agent[]> {
     try {
-      const response = await this.client.get('/agents');
+      const response = await this.client.get('/monitor/agents');
       return response.data;
     } catch (error: any) {
       logger.error('Failed to fetch agents', { error: error.message });
@@ -70,7 +70,7 @@ export class AIAgentsClient {
 
   async getAgent(id: string): Promise<Agent> {
     try {
-      const response = await this.client.get(`/agents/${id}`);
+      const response = await this.client.get(`/monitor/agents/${id}`);
       return response.data;
     } catch (error: any) {
       logger.error(`Failed to fetch agent ${id}`, { error: error.message });
@@ -80,7 +80,7 @@ export class AIAgentsClient {
 
   async updateAgent(id: string, update: AgentUpdateRequest): Promise<Agent> {
     try {
-      const response = await this.client.put(`/agents/${id}`, update);
+      const response = await this.client.put(`/monitor/agents/${id}`, update);
       return response.data;
     } catch (error: any) {
       logger.error(`Failed to update agent ${id}`, { error: error.message, update });
@@ -90,7 +90,7 @@ export class AIAgentsClient {
 
   async performAgentAction(id: string, action: AgentActionRequest): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await this.client.post(`/agents/${id}/actions`, action);
+      const response = await this.client.post(`/monitor/agents/${id}/actions/${action.action}/execute`, action.parameters);
       return response.data;
     } catch (error: any) {
       logger.error(`Failed to perform action on agent ${id}`, { 
@@ -103,7 +103,7 @@ export class AIAgentsClient {
 
   async getAgentLogs(id: string, limit = 100): Promise<any[]> {
     try {
-      const response = await this.client.get(`/agents/${id}/logs`, {
+      const response = await this.client.get(`/monitor/agents/${id}/logs`, {
         params: { limit }
       });
       return response.data;
@@ -113,21 +113,29 @@ export class AIAgentsClient {
     }
   }
 
-  async getAgentMetrics(id: string, timeRange = '24h'): Promise<any> {
+  async getAgentAnalytics(id: string): Promise<any> {
     try {
-      const response = await this.client.get(`/agents/${id}/metrics`, {
-        params: { timeRange }
-      });
+      const response = await this.client.get(`/monitor/agents/${id}/analytics`);
       return response.data;
     } catch (error: any) {
-      logger.error(`Failed to fetch metrics for agent ${id}`, { error: error.message });
+      logger.error(`Failed to fetch analytics for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async getAgentActions(id: string): Promise<any[]> {
+    try {
+      const response = await this.client.get(`/monitor/agents/${id}/actions`);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to fetch actions for agent ${id}`, { error: error.message });
       throw this.handleError(error);
     }
   }
 
   async checkHealth(): Promise<{ status: string; timestamp: string }> {
     try {
-      const response = await this.client.get('/health');
+      const response = await this.client.get('/monitor/health');
       return response.data;
     } catch (error: any) {
       logger.error('AI Agents API health check failed', { error: error.message });
