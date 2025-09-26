@@ -13,6 +13,7 @@ import { authMiddleware } from './middleware/auth';
 import { aiAgentsRouter } from './routes/ai-agents';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
+import { financeRouter } from './routes/finance';
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.use('/api/auth', authRouter);
 // Protected routes (require authentication)
 app.use('/api/admin', authMiddleware);
 app.use('/api/admin/ai-agents', aiAgentsRouter);
+app.use('/api/admin/finance', financeRouter);
 
 // 404 handler
 app.use('*', (req, res) => {
