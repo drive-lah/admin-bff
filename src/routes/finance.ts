@@ -53,14 +53,15 @@ financeRouter.get('/collections', asyncHandler(async (req, res) => {
     });
 
     // Return error response in expected format
-    const errorResponse: APIResponse = {
-      data: null,
-      message: 'Failed to retrieve collections metrics',
-      error: error.response?.data || error.message,
-      timestamp: new Date().toISOString(),
-    };
-
-    res.status(error.response?.status || 500).json(errorResponse);
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve collections metrics',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
   }
 }));
 
@@ -82,13 +83,14 @@ financeRouter.get('/collections/health', asyncHandler(async (req, res) => {
   } catch (error: any) {
     logger.error('Collections service health check failed', { error: error.message });
 
-    const errorResponse: APIResponse = {
-      data: null,
-      message: 'Collections service health check failed',
-      error: error.message,
-      timestamp: new Date().toISOString(),
-    };
-
-    res.status(503).json(errorResponse);
+    res.status(503).json({
+      error: {
+        message: 'Collections service health check failed',
+        statusCode: 503,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
   }
 }));
