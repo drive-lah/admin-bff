@@ -7,19 +7,35 @@ import { APIResponse } from '../types/api';
 
 export const aiAgentsRouter = Router();
 
+// Simple cache for agents list
+const cache = { agents: null as any, ts: 0 };
+const TTL_MS = 10_000;
+
 // TEMPORARY: Removed module access restriction - all users can access AI agents
 // aiAgentsRouter.use(requireModule('ai-agents'));
 
 // GET /api/admin/ai-agents - Get all agents
 aiAgentsRouter.get('/', asyncHandler(async (req, res) => {
+  const now = Date.now();
+  if (cache.agents && now - cache.ts < TTL_MS) {
+    const response: APIResponse = {
+      data: cache.agents,
+      message: 'Agents retrieved (cached)',
+      timestamp: new Date().toISOString(),
+    };
+    return res.json(response);
+  }
+
   const agents = await aiAgentsClient.getAgents();
-  
+  cache.agents = agents;
+  cache.ts = now;
+
   const response: APIResponse = {
     data: agents,
     message: 'Agents retrieved successfully',
     timestamp: new Date().toISOString(),
   };
-  
+
   res.json(response);
 }));
 

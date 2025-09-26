@@ -9,7 +9,7 @@ export class AIAgentsClient {
   constructor() {
     this.client = axios.create({
       baseURL: config.aiAgentsApiUrl,
-      timeout: 10000,
+      timeout: 15000, // was 10000
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
@@ -58,24 +58,31 @@ export class AIAgentsClient {
     );
   }
 
-  async getAgents(): Promise<Agent[]> {
-    try {
-      const response = await this.client.get('/monitor/agents');
-      return response.data;
-    } catch (error: any) {
-      logger.error('Failed to fetch agents', { error: error.message });
-      throw this.handleError(error);
+  private async getWithRetry<T>(path: string, attempts = 3): Promise<T> {
+    let delay = 200;
+    let lastErr: any;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const res = await this.client.get<T>(path);
+        return res.data as any;
+      } catch (err: any) {
+        lastErr = err;
+        // Retry only on timeouts/network
+        const isTimeout = err.code === 'ECONNABORTED' || !!err.request;
+        if (!isTimeout || i === attempts - 1) break;
+        await new Promise(r => setTimeout(r, delay));
+        delay = Math.min(delay * 2, 1000); // backoff
+      }
     }
+    throw this.handleError(lastErr);
+  }
+
+  async getAgents(): Promise<Agent[]> {
+    return this.getWithRetry<Agent[]>('/monitor/agents');
   }
 
   async getAgent(id: string): Promise<Agent> {
-    try {
-      const response = await this.client.get(`/monitor/agents/${id}`);
-      return response.data;
-    } catch (error: any) {
-      logger.error(`Failed to fetch agent ${id}`, { error: error.message });
-      throw this.handleError(error);
-    }
+    return this.getWithRetry<Agent>(`/monitor/agents/${id}`);
   }
 
   async updateAgent(id: string, update: AgentUpdateRequest): Promise<Agent> {
