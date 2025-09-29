@@ -13,16 +13,25 @@ export class GoogleWorkspaceService {
   private async initializeGoogleAdmin(): Promise<void> {
     try {
       // Initialize Google Admin SDK
-      const auth = new google.auth.GoogleAuth({
-        // You'll need to set these environment variables
-        keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE,
+      let authConfig: any = {
         scopes: [
           'https://www.googleapis.com/auth/admin.directory.user.readonly',
           'https://www.googleapis.com/auth/admin.directory.group.readonly'
         ],
         // Subject should be an admin email that can impersonate
         subject: process.env.GOOGLE_ADMIN_EMAIL
-      });
+      };
+
+      // Support both keyFile (for local dev) and credentials (for production)
+      if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE) {
+        authConfig.keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
+      } else if (process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS) {
+        authConfig.credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS);
+      } else {
+        throw new Error('Either GOOGLE_SERVICE_ACCOUNT_KEY_FILE or GOOGLE_SERVICE_ACCOUNT_CREDENTIALS must be set');
+      }
+
+      const auth = new google.auth.GoogleAuth(authConfig);
 
       this.admin = google.admin({ version: 'directory_v1', auth });
       this.initialized = true;
