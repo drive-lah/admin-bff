@@ -152,6 +152,7 @@ financeRouter.get('/collections/health', asyncHandler(async (req, res) => {
     });
   }
 }));
+
 // GET /api/admin/finance/collections/category-breakdown - Get invoice category breakdown
 financeRouter.get('/collections/category-breakdown', asyncHandler(async (req, res) => {
   logger.info('Fetching category breakdown from monitor API');

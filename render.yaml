@@ -8,18 +8,36 @@ services:
     healthCheckPath: /api/health/live
     envVars:
       - key: NODE_ENV
-        value: development
+        value: production
       - key: PORT
         value: 10000
       - key: AI_AGENTS_API_URL
         sync: false
-      - key: GOOGLE_CLIENT_ID  
+      - key: GOOGLE_CLIENT_ID
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
       - key: INTERNAL_API_KEY
         generateValue: true
       - key: ALLOWED_ORIGINS
         value: https://admin-controls.drivelah.sg,https://*.onrender.com
       - key: LOG_LEVEL
         value: info
+      - key: DB_HOST
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_PORT
+        value: 5432
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY_FILE
+        sync: false
+      - key: GOOGLE_ADMIN_EMAIL
+        sync: false
+      - key: ALLOWED_DOMAINS
+        value: drivelah.sg,drivemate.au
