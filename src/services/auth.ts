@@ -158,7 +158,7 @@ export class AuthService {
 
     return jwt.sign(payload, this.jwtSecret, {
       expiresIn: process.env.JWT_EXPIRES_IN || '24h'
-    });
+    } as jwt.SignOptions);
   }
 
   /**
@@ -170,7 +170,7 @@ export class AuthService {
       const parts = token.split('.');
       if (parts.length !== 3) return null;
 
-      const payload = Buffer.from(parts[1], 'base64').toString();
+      const payload = Buffer.from(parts[1] || '', 'base64').toString();
       return JSON.parse(payload) as DecodedGoogleJWT;
     } catch (error) {
       logger.error('Failed to decode Google JWT', { error });

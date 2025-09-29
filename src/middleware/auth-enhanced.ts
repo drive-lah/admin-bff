@@ -3,13 +3,9 @@ import { AuthService } from '../services/auth';
 import { User } from '../types/user';
 import { logger } from '../utils/logger';
 
-// Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: User;
-    }
-  }
+// Use the existing AuthenticatedUser interface from auth.ts
+interface AuthRequest extends Request {
+  user?: User;
 }
 
 const authService = new AuthService();
@@ -17,7 +13,7 @@ const authService = new AuthService();
 /**
  * Middleware to authenticate JWT token with user registry
  */
-export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -71,7 +67,7 @@ export const requireModuleAccess = (
   module: string,
   requiredLevel: 'read' | 'write' | 'admin' = 'read'
 ) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
         return res.status(401).json({
@@ -127,7 +123,7 @@ export const requireModuleAccess = (
 /**
  * Middleware to check if user has admin role
  */
-export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
   if (!req.user) {
     return res.status(401).json({
       error: {
@@ -166,7 +162,7 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction) =>
 /**
  * Middleware to check if user can manage other users (admin or manager role)
  */
-export const requireUserManagement = (req: Request, res: Response, next: NextFunction) => {
+export const requireUserManagement = (req: AuthRequest, res: Response, next: NextFunction): void => {
   if (!req.user) {
     return res.status(401).json({
       error: {
@@ -205,7 +201,7 @@ export const requireUserManagement = (req: Request, res: Response, next: NextFun
 /**
  * Optional authentication - sets user if token is present and valid, but doesn't require it
  */
-export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
