@@ -254,3 +254,287 @@ financeRouter.get('/collections/category-timeline', asyncHandler(async (req, res
     });
   }
 }));
+
+// GET /api/admin/finance/revenue-accruals/summary - Get revenue accruals summary metrics
+financeRouter.get('/revenue-accruals/summary', asyncHandler(async (req, res) => {
+  logger.info('Fetching revenue accruals summary from monitor API');
+
+  try {
+    // Get market parameter from query string
+    const market = req.query.market || 'australia';
+    logger.info(`Market selected for revenue accruals summary: ${market}`);
+
+    const url = `${config.aiAgentsApiUrl}/api/monitor/revenue-accruals/summary?market=${market}`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Revenue accruals summary retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch revenue accruals summary from monitor API', {
+      error: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve revenue accruals summary',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /api/admin/finance/revenue-accruals/timeline - Get revenue accruals timeline
+financeRouter.get('/revenue-accruals/timeline', asyncHandler(async (req, res) => {
+  logger.info('Fetching revenue accruals timeline from monitor API');
+
+  try {
+    // Get parameters from query string
+    const market = req.query.market || 'australia';
+    const months = req.query.months || '12';
+    logger.info(`Market selected for revenue accruals timeline: ${market}, months: ${months}`);
+
+    const url = `${config.aiAgentsApiUrl}/api/monitor/revenue-accruals/timeline?market=${market}&months=${months}`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Revenue accruals timeline retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch revenue accruals timeline from monitor API', {
+      error: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve revenue accruals timeline',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /api/admin/finance/revenue-accruals/view-definitions - Get view definitions for accrual metrics
+financeRouter.get('/revenue-accruals/view-definitions', asyncHandler(async (req, res) => {
+  logger.info('Fetching accrual view definitions from monitor API');
+
+  try {
+    // Get market parameter from query string
+    const market = req.query.market || 'australia';
+    logger.info(`Market selected for view definitions: ${market}`);
+
+    const url = `${config.aiAgentsApiUrl}/api/monitor/revenue-accruals/view-definitions?market=${market}`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Accrual view definitions retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch accrual view definitions from monitor API', {
+      error: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve accrual view definitions',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /api/admin/finance/host-expenses/timeline - Get host expenses timeline
+financeRouter.get('/host-expenses/timeline', asyncHandler(async (req, res) => {
+  logger.info('Fetching host expenses timeline from monitor API');
+
+  try {
+    // Get parameters from query string
+    const market = req.query.market || 'singapore';
+    const months = req.query.months || '12';
+    logger.info(`Market selected for host expenses timeline: ${market}, months: ${months}`);
+
+    const url = `${config.aiAgentsApiUrl}/api/monitor/host-expenses/timeline?market=${market}&months=${months}`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Host expenses timeline retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch host expenses timeline from monitor API', {
+      error: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve host expenses timeline',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /api/admin/finance/host-expenses/view-definitions - Get expense view definitions
+financeRouter.get('/host-expenses/view-definitions', asyncHandler(async (req, res) => {
+  logger.info('Fetching expense view definitions from monitor API');
+
+  try {
+    // Get market parameter from query string
+    const market = req.query.market || 'singapore';
+    logger.info(`Market selected for expense view definitions: ${market}`);
+
+    const url = `${config.aiAgentsApiUrl}/api/monitor/host-expenses/view-definitions?market=${market}`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Expense view definitions retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch expense view definitions from monitor API', {
+      error: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve expense view definitions',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// Cash Movements Timeline - Get monthly timeline of actual cash in/out from Stripe
+financeRouter.get('/cash-movements/timeline', asyncHandler(async (req, res) => {
+  try {
+    const market = (req.query.market as string) || 'singapore';
+    const months = (req.query.months as string) || '12';
+
+    const url = `${config.aiAgentsApiUrl}/api/monitor/finance/cash-movements/timeline?market=${market}&months=${months}`;
+    logger.info(`Fetching cash movements timeline from: ${url}`);
+
+    const response = await axios.get(url, {
+      timeout: 30000,
+    });
+
+    res.json({
+      data: response.data,
+      message: 'Cash movements timeline retrieved successfully',
+    });
+  } catch (error: any) {
+    logger.error('Cash movements timeline API error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve cash movements timeline',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// Stripe Payouts Details - Get individual payout transactions for QuickBooks matching
+financeRouter.get('/stripe-payouts/details', asyncHandler(async (req, res) => {
+  try {
+    const market = (req.query.market as string) || 'singapore';
+    const months = (req.query.months as string) || '12';
+
+    const url = `${config.aiAgentsApiUrl}/api/monitor/finance/stripe-payouts/details?market=${market}&months=${months}`;
+    logger.info(`Fetching Stripe payouts details from: ${url}`);
+
+    const response = await axios.get(url, {
+      timeout: 30000,
+    });
+
+    res.json({
+      data: response.data,
+      message: 'Stripe payouts details retrieved successfully',
+    });
+  } catch (error: any) {
+    logger.error('Stripe payouts details API error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve Stripe payouts details',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
