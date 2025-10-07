@@ -20,8 +20,10 @@ export class GoogleWorkspaceService {
           'https://www.googleapis.com/auth/admin.directory.user.readonly',
           'https://www.googleapis.com/auth/admin.directory.group.readonly'
         ],
-        // Subject should be an admin email that can impersonate
-        subject: process.env.GOOGLE_ADMIN_EMAIL
+        clientOptions: {
+          // Subject should be an admin email that can impersonate
+          subject: process.env.GOOGLE_ADMIN_EMAIL
+        }
       });
 
       this.admin = google.admin({ version: 'directory_v1', auth });
@@ -124,31 +126,28 @@ export class GoogleWorkspaceService {
       suspended: googleUser.suspended || false,
       orgUnitPath: googleUser.orgUnitPath || '/',
       thumbnailPhotoUrl: googleUser.thumbnailPhotoUrl,
-      lastLoginTime: googleUser.lastLoginTime
+      lastLoginTime: googleUser.lastLoginTime,
+      creationTime: googleUser.creationTime
     };
   }
 
-  public mapOrgUnitToTeam(orgUnitPath: string): string {
-    // Map Google Workspace org units to internal teams
-    const orgUnitMapping: { [key: string]: string } = {
-      '/Finance': 'finance',
-      '/Technology': 'tech',
-      '/Operations': 'operations',
-      '/Support': 'support',
-      '/Management': 'management',
-      '/Marketing': 'marketing'
-    };
+  // NOTE: These methods are kept for reference but NOT used in sync
+  // Team and role assignment are done MANUALLY in the admin portal
 
-    return orgUnitMapping[orgUnitPath] || 'general';
+  public mapOrgUnitToTeam(orgUnitPath: string): 'tech' | 'core' | 'resolutions' | 'c&s' | 'host' | 'data' | 'hr' | 'finance' | 'founders' | 'product' | 'na' {
+    // NOT USED - Teams are assigned manually in the portal
+    // This is kept for reference only
+    return 'na';
   }
 
-  public determineRoleFromGroups(groups: string[]): 'admin' | 'manager' | 'viewer' {
-    // Default role - permissions will be managed in the portal
+  public determineRoleFromGroups(groups: string[]): 'admin' | 'viewer' {
+    // NOT USED - Roles are assigned manually in the portal
+    // This is kept for reference only
     return 'viewer';
   }
 
   public getModulePermissionsFromGroups(groups: string[]): { module: string; access_level: 'read' | 'write' | 'admin' }[] {
-    // Return empty array - permissions will be managed in the portal
+    // NOT USED - Permissions are assigned manually in the portal
     return [];
   }
 }

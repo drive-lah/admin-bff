@@ -6,18 +6,18 @@ export class DatabaseMigrations {
     try {
       logger.info('Running database migrations...');
 
-      // Create users table
+      // Create users table (base version)
       await db.run(`
         CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
           email VARCHAR(255) UNIQUE NOT NULL,
           name VARCHAR(255) NOT NULL,
-          role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'manager', 'viewer')),
-          team VARCHAR(100) NOT NULL,
-          status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
+          role VARCHAR(50) NOT NULL,
+          teams TEXT[] NOT NULL,
+          status VARCHAR(50) NOT NULL DEFAULT 'active',
           google_workspace_id VARCHAR(255) UNIQUE,
           google_org_unit VARCHAR(255),
-          google_groups TEXT, -- JSON array stored as string
+          google_groups TEXT,
           intercom_id VARCHAR(255),
           aircall_id VARCHAR(255),
           slack_id VARCHAR(255),
@@ -27,6 +27,58 @@ export class DatabaseMigrations {
           last_login_at TIMESTAMP,
           last_google_sync_at TIMESTAMP
         )
+      `);
+
+      // Add new columns if they don't exist
+      await db.run(`
+        DO $$
+        BEGIN
+          -- Add address column
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='address') THEN
+            ALTER TABLE users ADD COLUMN address TEXT;
+          END IF;
+
+          -- Add country column
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='country') THEN
+            ALTER TABLE users ADD COLUMN country VARCHAR(100);
+          END IF;
+
+          -- Add date_of_joining column
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='date_of_joining') THEN
+            ALTER TABLE users ADD COLUMN date_of_joining DATE;
+          END IF;
+
+          -- Add org_role column
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='org_role') THEN
+            ALTER TABLE users ADD COLUMN org_role TEXT;
+          END IF;
+
+          -- Add manager_id column
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='manager_id') THEN
+            ALTER TABLE users ADD COLUMN manager_id INTEGER;
+          END IF;
+
+          -- Add phone_number column
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='phone_number') THEN
+            ALTER TABLE users ADD COLUMN phone_number VARCHAR(50);
+          END IF;
+
+          -- Add region column with default value
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='region') THEN
+            ALTER TABLE users ADD COLUMN region VARCHAR(50) DEFAULT 'global' CHECK (region IN ('singapore', 'australia', 'global'));
+          END IF;
+        END $$;
+      `);
+
+      // Add foreign key constraint for manager_id if it doesn't exist
+      await db.run(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_manager_id_fkey') THEN
+            ALTER TABLE users ADD CONSTRAINT users_manager_id_fkey
+              FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL;
+          END IF;
+        END $$;
       `);
 
       // Create user_permissions table
@@ -48,6 +100,8 @@ export class DatabaseMigrations {
       await db.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_users_google_workspace_id ON users(google_workspace_id)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)`);
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_users_teams ON users USING GIN(teams)`);
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_users_manager_id ON users(manager_id)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_user_permissions_user_id ON user_permissions(user_id)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_user_permissions_module ON user_permissions(module)`);
 
@@ -96,13 +150,13 @@ export class DatabaseMigrations {
       // Insert a default admin user (this would typically be synced from Google Workspace)
       await db.run(`
         INSERT INTO users (
-          email, name, role, team, status, created_at, updated_at
+          email, name, role, teams, status, created_at, updated_at
         ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `, [
         'admin@drivelah.sg',
         'System Admin',
         'admin',
-        'tech',
+        ['tech'],
         'active'
       ]);
 

@@ -13,22 +13,40 @@ const userRegistry = new UserRegistryService();
 const createUserSchema = Joi.object({
   email: Joi.string().email().required(),
   name: Joi.string().min(2).max(100).required(),
-  role: Joi.string().valid('admin', 'manager', 'viewer').required(),
-  team: Joi.string().min(2).max(50).required(),
+  role: Joi.string().valid('admin', 'viewer').required(),
+  teams: Joi.array().items(
+    Joi.string().valid('tech', 'core', 'resolutions', 'c&s', 'host', 'data', 'hr', 'finance', 'founders', 'product', 'marketing', 'fleet ops', 'verification', 'guest', 'flexplus', 'na')
+  ).min(1).required(),
+  region: Joi.string().valid('singapore', 'australia', 'global').optional(),
   google_workspace_id: Joi.string().optional(),
   intercom_id: Joi.string().optional(),
   aircall_id: Joi.string().optional(),
-  slack_id: Joi.string().optional()
+  slack_id: Joi.string().optional(),
+  address: Joi.string().optional(),
+  country: Joi.string().max(100).optional(),
+  date_of_joining: Joi.date().iso().optional(),
+  org_role: Joi.string().optional(),
+  manager_id: Joi.number().integer().positive().optional(),
+  phone_number: Joi.string().max(50).optional()
 });
 
 const updateUserSchema = Joi.object({
   name: Joi.string().min(2).max(100).optional(),
-  role: Joi.string().valid('admin', 'manager', 'viewer').optional(),
-  team: Joi.string().min(2).max(50).optional(),
-  status: Joi.string().valid('active', 'inactive', 'suspended').optional(),
+  role: Joi.string().valid('admin', 'viewer').optional(),
+  teams: Joi.array().items(
+    Joi.string().valid('tech', 'core', 'resolutions', 'c&s', 'host', 'data', 'hr', 'finance', 'founders', 'product', 'marketing', 'fleet ops', 'verification', 'guest', 'flexplus', 'na')
+  ).min(1).optional(),
+  // status is NOT included - it's read-only and only updated via Google Workspace sync
+  region: Joi.string().valid('singapore', 'australia', 'global').optional(),
   intercom_id: Joi.string().allow('').optional(),
   aircall_id: Joi.string().allow('').optional(),
-  slack_id: Joi.string().allow('').optional()
+  slack_id: Joi.string().allow('').optional(),
+  address: Joi.string().allow('').optional(),
+  country: Joi.string().max(100).allow('').optional(),
+  date_of_joining: Joi.date().iso().allow(null).optional(),
+  org_role: Joi.string().allow('').optional(),
+  manager_id: Joi.number().integer().positive().allow(null).optional(),
+  phone_number: Joi.string().max(50).allow('').optional()
 });
 
 const setPermissionSchema = Joi.object({
