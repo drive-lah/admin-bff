@@ -63,18 +63,26 @@ export class UserRegistryService {
     try {
       await db.run(`
         INSERT INTO users (
-          email, name, role, team, google_workspace_id, intercom_id, aircall_id, slack_id,
+          email, name, role, teams, region, google_workspace_id, intercom_id, aircall_id, slack_id,
+          address, country, date_of_joining, org_role, manager_id, phone_number,
           created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `, [
         userData.email,
         userData.name,
         userData.role,
-        userData.team,
+        userData.teams, // PostgreSQL array
+        userData.region || 'global',
         userData.google_workspace_id,
         userData.intercom_id,
         userData.aircall_id,
-        userData.slack_id
+        userData.slack_id,
+        userData.address,
+        userData.country,
+        userData.date_of_joining,
+        userData.org_role,
+        userData.manager_id,
+        userData.phone_number
       ]);
 
       const user = await this.getUserByEmail(userData.email);
@@ -104,14 +112,11 @@ export class UserRegistryService {
         updates.push(`role = $${paramIndex++}`);
         params.push(userData.role);
       }
-      if (userData.team !== undefined) {
-        updates.push(`team = $${paramIndex++}`);
-        params.push(userData.team);
+      if (userData.teams !== undefined) {
+        updates.push(`teams = $${paramIndex++}`);
+        params.push(userData.teams); // PostgreSQL array
       }
-      if (userData.status !== undefined) {
-        updates.push(`status = $${paramIndex++}`);
-        params.push(userData.status);
-      }
+      // status is NOT editable via update - only synced from Google Workspace
       if (userData.intercom_id !== undefined) {
         updates.push(`intercom_id = $${paramIndex++}`);
         params.push(userData.intercom_id);
@@ -123,6 +128,34 @@ export class UserRegistryService {
       if (userData.slack_id !== undefined) {
         updates.push(`slack_id = $${paramIndex++}`);
         params.push(userData.slack_id);
+      }
+      if (userData.address !== undefined) {
+        updates.push(`address = $${paramIndex++}`);
+        params.push(userData.address);
+      }
+      if (userData.country !== undefined) {
+        updates.push(`country = $${paramIndex++}`);
+        params.push(userData.country);
+      }
+      if (userData.date_of_joining !== undefined) {
+        updates.push(`date_of_joining = $${paramIndex++}`);
+        params.push(userData.date_of_joining);
+      }
+      if (userData.org_role !== undefined) {
+        updates.push(`org_role = $${paramIndex++}`);
+        params.push(userData.org_role);
+      }
+      if (userData.manager_id !== undefined) {
+        updates.push(`manager_id = $${paramIndex++}`);
+        params.push(userData.manager_id);
+      }
+      if (userData.phone_number !== undefined) {
+        updates.push(`phone_number = $${paramIndex++}`);
+        params.push(userData.phone_number);
+      }
+      if (userData.region !== undefined) {
+        updates.push(`region = $${paramIndex++}`);
+        params.push(userData.region);
       }
 
       if (updates.length === 0) {
@@ -272,55 +305,54 @@ export class UserRegistryService {
       const existingUser = await this.getUserByGoogleId(googleUser.id);
       const groups = await this.googleWorkspace.fetchUserGroups(googleUser.primaryEmail);
 
-      const userData = {
-        email: googleUser.primaryEmail,
-        name: googleUser.name.fullName,
-        role: this.googleWorkspace.determineRoleFromGroups(groups),
-        team: this.googleWorkspace.mapOrgUnitToTeam(googleUser.orgUnitPath),
-        status: googleUser.suspended ? 'suspended' as const : 'active' as const,
-        google_workspace_id: googleUser.id,
-        google_org_unit: googleUser.orgUnitPath,
-        google_groups: JSON.stringify(groups),
-        profile_photo_url: googleUser.thumbnailPhotoUrl,
-        last_google_sync_at: new Date().toISOString()
-      };
-
       let user: User;
 
       if (existingUser) {
-        // Update existing user
+        // Update existing user - ONLY sync name, status, photo, and Google metadata
+        // DO NOT override role or team - those are managed manually in the portal
         await db.run(`
           UPDATE users SET
-            name = $1, role = $2, team = $3, status = $4, google_org_unit = $5,
-            google_groups = $6, profile_photo_url = $7, last_google_sync_at = CURRENT_TIMESTAMP,
+            name = $1,
+            status = $2,
+            google_org_unit = $3,
+            profile_photo_url = $4,
+            last_google_sync_at = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP
-          WHERE google_workspace_id = $8
+          WHERE google_workspace_id = $5
         `, [
-          userData.name, userData.role, userData.team, userData.status,
-          userData.google_org_unit, userData.google_groups, userData.profile_photo_url,
-          userData.google_workspace_id
+          googleUser.name.fullName,
+          googleUser.suspended ? 'suspended' : 'active',
+          googleUser.orgUnitPath,
+          googleUser.thumbnailPhotoUrl,
+          googleUser.id
         ]);
 
         user = (await this.getUserByGoogleId(googleUser.id))!;
+        logger.info(`User synced from Google Workspace (updated): ${googleUser.primaryEmail}`);
       } else {
-        // Create new user
+        // Create new user - assign default role and team
+        // Admin must manually update role/team and grant permissions after sync
         await db.run(`
           INSERT INTO users (
-            email, name, role, team, status, google_workspace_id, google_org_unit,
-            google_groups, profile_photo_url, last_google_sync_at,
+            email, name, role, teams, status, google_workspace_id, google_org_unit,
+            profile_photo_url, last_google_sync_at,
             created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `, [
-          userData.email, userData.name, userData.role, userData.team, userData.status,
-          userData.google_workspace_id, userData.google_org_unit, userData.google_groups,
-          userData.profile_photo_url
+          googleUser.primaryEmail,
+          googleUser.name.fullName,
+          'viewer',  // Default role - admin must manually update
+          ['na'],    // Default teams array - admin must manually assign
+          googleUser.suspended ? 'suspended' : 'active',
+          googleUser.id,
+          googleUser.orgUnitPath,
+          googleUser.thumbnailPhotoUrl
         ]);
 
-        user = (await this.getUserByEmail(userData.email))!;
+        user = (await this.getUserByEmail(googleUser.primaryEmail))!;
+        logger.info(`New user created from Google Workspace sync (requires manual role/team assignment): ${googleUser.primaryEmail}`);
       }
 
-      // Note: Permissions are managed manually in the portal, not synced from Google Groups
-      logger.info(`User synced from Google Workspace (permissions managed separately): ${userData.email}`);
       return user;
     } catch (error) {
       logger.error(`Error syncing user from Google Workspace: ${googleUser.primaryEmail}`, error);
@@ -368,10 +400,10 @@ export class UserRegistryService {
     try {
       return await db.all<User>(`
         SELECT * FROM users
-        WHERE email LIKE $1 OR name LIKE $2 OR team LIKE $3
+        WHERE email LIKE $1 OR name LIKE $2 OR $3 = ANY(teams)
         ORDER BY name
         LIMIT 50
-      `, [`%${query}%`, `%${query}%`, `%${query}%`]);
+      `, [`%${query}%`, `%${query}%`, query]);
     } catch (error) {
       logger.error(`Error searching users with query ${query}:`, error);
       throw error;
@@ -397,7 +429,10 @@ export class UserRegistryService {
       `);
 
       const byTeam = await db.all<{ team: string; count: number }>(`
-        SELECT team, COUNT(*) as count FROM users GROUP BY team ORDER BY count DESC
+        SELECT UNNEST(teams) as team, COUNT(*) as count
+        FROM users
+        GROUP BY team
+        ORDER BY count DESC
       `);
 
       return {
