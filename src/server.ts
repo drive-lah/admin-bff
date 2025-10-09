@@ -17,6 +17,7 @@ import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
 import { financeRouter } from './routes/finance';
 import { usersRouter } from './routes/users';
+import { kpisRouter } from './routes/kpis';
 
 const app = express();
 
@@ -108,6 +109,7 @@ app.get('/api/test/google-workspace', asyncHandler(async (req, res) => {
 app.use('/api/admin', authMiddleware);
 app.use('/api/admin/ai-agents', aiAgentsRouter);
 app.use('/api/admin/finance', financeRouter);
+app.use('/api/admin/kpis', kpisRouter);
 
 // User management routes (require authentication)
 // Note: Using authMiddleware instead of authenticateToken+requireUserManagement for now
