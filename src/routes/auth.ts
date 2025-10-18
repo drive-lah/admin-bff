@@ -1,24 +1,14 @@
 import { Router, Request, Response } from 'express';
-import jwt, { SignOptions } from 'jsonwebtoken';
-import { config } from '../config/config';
+import { AuthService } from '../services/auth';
 import { asyncHandler, createError } from '../middleware/error-handler';
 import { logger } from '../utils/logger';
 import { APIResponse } from '../types/api';
+import { activityLogger } from '../services/activity-logger';
+import { ActionType } from '../types/logs';
 
 export const authRouter = Router();
 
-// Define allowed domains for admin access
-const ALLOWED_DOMAINS = ['drivelah.sg', 'drivemate.au'];
-
-// Define user permissions based on email
-// TEMPORARY: All users get full admin access (remove restrictions for now)
-const getUserPermissions = (email: string) => {
-  // Give everyone full admin access for now - we'll implement proper permissions later
-  return {
-    modules: ['users', 'listings', 'transactions', 'resolution', 'claims', 'host-management', 'ai-agents', 'tech'],
-    role: 'admin' as const
-  };
-};
+const authService = new AuthService();
 
 // POST /api/auth/google - Verify Google JWT and issue BFF JWT
 authRouter.post('/google', asyncHandler(async (req, res) => {
@@ -28,75 +18,55 @@ authRouter.post('/google', asyncHandler(async (req, res) => {
     throw createError('Google credential is required', 400);
   }
 
-  try {
-    // Decode Google JWT (Note: In production, verify the signature with Google's public keys)
-    const payload = JSON.parse(Buffer.from(credential.split('.')[1], 'base64').toString());
-    
-    // Validate required fields
-    if (!payload.email || !payload.name || !payload.email_verified) {
-      throw createError('Invalid Google token payload', 400);
-    }
+  // Authenticate with Google and get user from registry
+  const result = await authService.authenticateWithGoogle(credential);
 
-    // Check if email is verified
-    if (!payload.email_verified) {
-      throw createError('Email not verified with Google', 400);
-    }
-
-    // Check domain restrictions
-    const domain = payload.hd || payload.email.split('@')[1];
-    if (!ALLOWED_DOMAINS.includes(domain)) {
-      throw createError(`Access denied. Only ${ALLOWED_DOMAINS.join(', ')} domains are allowed.`, 403);
-    }
-
-    // Create user object
-    const user = {
-      id: payload.sub,
-      email: payload.email,
-      name: payload.name,
-      picture: payload.picture,
-      domain,
-      permissions: getUserPermissions(payload.email)
-    };
-
-    // Create BFF JWT token
-    const token = jwt.sign(
-      { user },
-      config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn as any }
-    );
-
-    logger.info('User authenticated successfully', {
-      userId: user.id,
-      email: user.email,
-      domain,
-      role: user.permissions.role,
-      modules: user.permissions.modules.length
-    });
-
-    const response: APIResponse = {
-      data: {
-        token,
-        user,
-        expiresIn: config.jwtExpiresIn
-      },
-      message: 'Authentication successful',
-      timestamp: new Date().toISOString(),
-    };
-
-    res.json(response);
-
-  } catch (error: any) {
-    logger.error('Google authentication failed', { 
-      error: error.message,
-      credential: credential?.substring(0, 50) + '...' // Log only first part for debugging
-    });
-    
-    if (error.statusCode) {
-      throw error;
-    }
-    
-    throw createError('Invalid Google token', 400);
+  if (!result) {
+    throw createError('Authentication failed. Please check your credentials and domain.', 401);
   }
+
+  const { user, token } = result;
+
+  // Log successful login event (synchronous - critical event)
+  const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+    || req.ip
+    || req.socket.remoteAddress
+    || undefined;
+
+  const userAgent = req.headers['user-agent'] || undefined;
+
+  const loginLog = activityLogger.createLogFromRequest({
+    user: { id: user.id, email: user.email },
+    actionType: ActionType.LOGIN,
+    actionDescription: 'User logged in successfully',
+    httpMethod: 'POST',
+    endpointPath: '/api/auth/google',
+    responseStatus: 200,
+    ipAddress,
+    userAgent
+  });
+
+  // Log synchronously (critical event)
+  await activityLogger.logSync(loginLog);
+
+  const response: APIResponse = {
+    data: {
+      token,
+      user: {
+        id: user.id.toString(),
+        email: user.email,
+        name: user.name,
+        picture: user.profile_photo_url || '',
+        role: user.role,
+        teams: user.teams
+      },
+      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+    },
+    message: 'Authentication successful',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
 }));
 
 // POST /api/auth/refresh - Refresh JWT token
@@ -160,8 +130,32 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
 authRouter.post('/logout', asyncHandler(async (req, res) => {
   // Note: With JWT, we can't really invalidate tokens server-side without a blacklist
   // This endpoint exists for consistency and future token blacklisting if needed
-  
-  logger.info('User logged out');
+
+  // Log logout event if user is authenticated
+  if (req.user) {
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.ip
+      || req.socket.remoteAddress
+      || undefined;
+
+    const userAgent = req.headers['user-agent'] || undefined;
+
+    const logoutLog = activityLogger.createLogFromRequest({
+      user: { id: parseInt(req.user.id), email: req.user.email },
+      actionType: ActionType.LOGOUT,
+      actionDescription: 'User logged out',
+      httpMethod: 'POST',
+      endpointPath: '/api/auth/logout',
+      responseStatus: 200,
+      ipAddress,
+      userAgent
+    });
+
+    // Log synchronously (critical event)
+    await activityLogger.logSync(logoutLog);
+  }
+
+  logger.info('User logged out', { email: req.user?.email });
 
   const response: APIResponse = {
     data: { success: true },

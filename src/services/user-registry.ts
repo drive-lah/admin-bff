@@ -10,6 +10,8 @@ import {
   ModuleAccess
 } from '../types/user';
 import { logger } from '../utils/logger';
+import { activityLogger } from './activity-logger';
+import { ActionType } from '../types/logs';
 
 export class UserRegistryService {
   private googleWorkspace: GoogleWorkspaceService;
@@ -61,6 +63,12 @@ export class UserRegistryService {
 
   public async createUser(userData: CreateUserRequest, createdBy: number): Promise<User> {
     try {
+      // Get the user performing the action
+      const actor = await this.getUserById(createdBy);
+      if (!actor) {
+        throw new Error('Actor user not found');
+      }
+
       await db.run(`
         INSERT INTO users (
           email, name, role, teams, region, google_workspace_id, intercom_id, aircall_id, slack_id,
@@ -90,6 +98,22 @@ export class UserRegistryService {
         throw new Error('Failed to create user');
       }
 
+      // Log user creation activity (synchronous - critical event)
+      const logData = activityLogger.createLogFromRequest({
+        user: { id: actor.id, email: actor.email },
+        actionType: ActionType.CREATE,
+        actionDescription: `Created user: ${user.email}`,
+        module: 'user-mgmt',
+        afterState: {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          teams: user.teams
+        }
+      });
+      await activityLogger.logSync(logData);
+
       logger.info(`User created: ${userData.email} by user ${createdBy}`);
       return user;
     } catch (error) {
@@ -100,6 +124,18 @@ export class UserRegistryService {
 
   public async updateUser(id: number, userData: UpdateUserRequest, updatedBy: number): Promise<User | undefined> {
     try {
+      // Get the user performing the action
+      const actor = await this.getUserById(updatedBy);
+      if (!actor) {
+        throw new Error('Actor user not found');
+      }
+
+      // Capture before state
+      const beforeUser = await this.getUserById(id);
+      if (!beforeUser) {
+        throw new Error('User to update not found');
+      }
+
       const updates: string[] = [];
       const params: any[] = [];
       let paramIndex = 1;
@@ -169,9 +205,34 @@ export class UserRegistryService {
         UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}
       `, params);
 
-      const user = await this.getUserById(id);
+      // Capture after state
+      const afterUser = await this.getUserById(id);
+
+      // Log user update activity (synchronous - critical event)
+      const logData = activityLogger.createLogFromRequest({
+        user: { id: actor.id, email: actor.email },
+        actionType: ActionType.UPDATE,
+        actionDescription: `Updated user: ${beforeUser.email}`,
+        module: 'user-mgmt',
+        beforeState: {
+          userId: beforeUser.id,
+          email: beforeUser.email,
+          name: beforeUser.name,
+          role: beforeUser.role,
+          teams: beforeUser.teams
+        },
+        afterState: afterUser ? {
+          userId: afterUser.id,
+          email: afterUser.email,
+          name: afterUser.name,
+          role: afterUser.role,
+          teams: afterUser.teams
+        } : undefined
+      });
+      await activityLogger.logSync(logData);
+
       logger.info(`User updated: ID ${id} by user ${updatedBy}`);
-      return user;
+      return afterUser;
     } catch (error) {
       logger.error(`Error updating user with id ${id}:`, error);
       throw error;
@@ -180,7 +241,36 @@ export class UserRegistryService {
 
   public async deleteUser(id: number, deletedBy: number): Promise<boolean> {
     try {
+      // Get the user performing the action
+      const actor = await this.getUserById(deletedBy);
+      if (!actor) {
+        throw new Error('Actor user not found');
+      }
+
+      // Capture before state
+      const beforeUser = await this.getUserById(id);
+      if (!beforeUser) {
+        throw new Error('User to delete not found');
+      }
+
       await db.run('DELETE FROM users WHERE id = $1', [id]);
+
+      // Log user deletion activity (synchronous - critical event)
+      const logData = activityLogger.createLogFromRequest({
+        user: { id: actor.id, email: actor.email },
+        actionType: ActionType.DELETE,
+        actionDescription: `Deleted user: ${beforeUser.email}`,
+        module: 'user-mgmt',
+        beforeState: {
+          userId: beforeUser.id,
+          email: beforeUser.email,
+          name: beforeUser.name,
+          role: beforeUser.role,
+          teams: beforeUser.teams
+        }
+      });
+      await activityLogger.logSync(logData);
+
       logger.info(`User deleted: ID ${id} by user ${deletedBy}`);
       return true;
     } catch (error) {
@@ -239,6 +329,23 @@ export class UserRegistryService {
     grantedBy: number
   ): Promise<void> {
     try {
+      // Get the user performing the action
+      const actor = await this.getUserById(grantedBy);
+      if (!actor) {
+        throw new Error('Actor user not found');
+      }
+
+      // Get the target user
+      const targetUser = await this.getUserById(userId);
+      if (!targetUser) {
+        throw new Error('Target user not found');
+      }
+
+      // Capture before state (existing permission if any)
+      const beforePermission = await db.get<UserPermission>(`
+        SELECT * FROM user_permissions WHERE user_id = $1 AND module = $2
+      `, [userId, module]);
+
       await db.run(`
         INSERT INTO user_permissions (user_id, module, access_level, granted_by, granted_at)
         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
@@ -247,6 +354,36 @@ export class UserRegistryService {
           granted_by = excluded.granted_by,
           granted_at = CURRENT_TIMESTAMP
       `, [userId, module, accessLevel, grantedBy]);
+
+      // Capture after state
+      const afterPermission = await db.get<UserPermission>(`
+        SELECT * FROM user_permissions WHERE user_id = $1 AND module = $2
+      `, [userId, module]);
+
+      // Log permission change activity (synchronous - critical event)
+      const actionDescription = beforePermission
+        ? `Updated permission for ${targetUser.email}: ${module} (${beforePermission.access_level} → ${accessLevel})`
+        : `Granted permission to ${targetUser.email}: ${module} (${accessLevel})`;
+
+      const logData = activityLogger.createLogFromRequest({
+        user: { id: actor.id, email: actor.email },
+        actionType: ActionType.UPDATE,
+        actionDescription,
+        module: 'user-mgmt',
+        beforeState: beforePermission ? {
+          userId,
+          targetEmail: targetUser.email,
+          module,
+          accessLevel: beforePermission.access_level
+        } : undefined,
+        afterState: afterPermission ? {
+          userId,
+          targetEmail: targetUser.email,
+          module,
+          accessLevel: afterPermission.access_level
+        } : undefined
+      });
+      await activityLogger.logSync(logData);
 
       logger.info(`Permission granted: User ${userId} - ${module}:${accessLevel} by user ${grantedBy}`);
     } catch (error) {
@@ -257,7 +394,40 @@ export class UserRegistryService {
 
   public async removeUserPermission(userId: number, module: string, removedBy: number): Promise<void> {
     try {
+      // Get the user performing the action
+      const actor = await this.getUserById(removedBy);
+      if (!actor) {
+        throw new Error('Actor user not found');
+      }
+
+      // Get the target user
+      const targetUser = await this.getUserById(userId);
+      if (!targetUser) {
+        throw new Error('Target user not found');
+      }
+
+      // Capture before state
+      const beforePermission = await db.get<UserPermission>(`
+        SELECT * FROM user_permissions WHERE user_id = $1 AND module = $2
+      `, [userId, module]);
+
       await db.run('DELETE FROM user_permissions WHERE user_id = $1 AND module = $2', [userId, module]);
+
+      // Log permission removal activity (synchronous - critical event)
+      const logData = activityLogger.createLogFromRequest({
+        user: { id: actor.id, email: actor.email },
+        actionType: ActionType.DELETE,
+        actionDescription: `Revoked permission from ${targetUser.email}: ${module}`,
+        module: 'user-mgmt',
+        beforeState: beforePermission ? {
+          userId,
+          targetEmail: targetUser.email,
+          module,
+          accessLevel: beforePermission.access_level
+        } : undefined
+      });
+      await activityLogger.logSync(logData);
+
       logger.info(`Permission removed: User ${userId} - ${module} by user ${removedBy}`);
     } catch (error) {
       logger.error(`Error removing permission for user ${userId}:`, error);

@@ -9,6 +9,7 @@ import { logger } from './utils/logger';
 import { errorHandler, asyncHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
 import { authenticateToken, requireModuleAccess, requireUserManagement } from './middleware/auth-enhanced';
+import { activityLoggingMiddleware } from './middleware/activity-logging';
 import { DatabaseMigrations } from './database/migrations';
 
 // Routes
@@ -18,6 +19,7 @@ import { healthRouter } from './routes/health';
 import { financeRouter } from './routes/finance';
 import { usersRouter } from './routes/users';
 import { kpisRouter } from './routes/kpis';
+import { logsRouter } from './routes/logs';
 
 const app = express();
 
@@ -70,6 +72,10 @@ app.use((req, res, next) => {
 app.use('/api/health', healthRouter);
 app.use('/api/auth', authRouter);
 
+// Activity logging middleware for all admin routes (registers AFTER auth in route handlers)
+// This middleware captures request/response data for audit logging
+app.use('/api/admin', authMiddleware, activityLoggingMiddleware);
+
 // Test endpoint for Google Workspace connection
 app.get('/api/test/google-workspace', asyncHandler(async (req, res) => {
   const { GoogleWorkspaceService } = await import('./services/google-workspace');
@@ -118,6 +124,9 @@ app.use('/api/admin/kpis', authMiddleware, kpisRouter);
 
 // User Management module - requires 'user-mgmt' module access for managing internal admin users
 app.use('/api/admin/users', authMiddleware, requireModuleAccess('user-mgmt', 'read'), usersRouter);
+
+// Activity Logs module - requires 'user-mgmt' module access (part of user management)
+app.use('/api/admin/logs', authMiddleware, requireModuleAccess('user-mgmt', 'read'), logsRouter);
 
 // 404 handler
 app.use('*', (req, res) => {
