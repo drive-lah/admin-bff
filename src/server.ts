@@ -11,6 +11,7 @@ import { authMiddleware } from './middleware/auth';
 import { authenticateToken, requireModuleAccess, requireUserManagement } from './middleware/auth-enhanced';
 import { activityLoggingMiddleware } from './middleware/activity-logging';
 import { DatabaseMigrations } from './database/migrations';
+import { logCleanup } from './services/log-cleanup';
 
 // Routes
 import { aiAgentsRouter } from './routes/ai-agents';
@@ -158,6 +159,42 @@ async function startServer() {
         database: 'SQLite (User Registry)',
       });
     });
+
+    // Schedule daily log cleanup job (runs at midnight)
+    const scheduleCleanup = () => {
+      const now = new Date();
+      const midnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+        0, 0, 0, 0
+      );
+      const timeUntilMidnight = midnight.getTime() - now.getTime();
+
+      // Run first cleanup at next midnight
+      setTimeout(async () => {
+        try {
+          await logCleanup.deleteOldLogs();
+        } catch (error) {
+          logger.error('Log cleanup job failed', { error });
+        }
+
+        // Then run daily
+        setInterval(async () => {
+          try {
+            await logCleanup.deleteOldLogs();
+          } catch (error) {
+            logger.error('Log cleanup job failed', { error });
+          }
+        }, 24 * 60 * 60 * 1000); // 24 hours
+      }, timeUntilMidnight);
+
+      logger.info('Log cleanup job scheduled', {
+        nextRunAt: midnight.toISOString()
+      });
+    };
+
+    scheduleCleanup();
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
