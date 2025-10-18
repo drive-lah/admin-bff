@@ -8,6 +8,7 @@
     "build": "tsc --noEmitOnError false && echo 'Build completed successfully' && ls -la dist/",
     "start": "node dist/server.js",
     "start:dev": "ts-node src/server.ts",
+    "sync-google": "ts-node scripts/sync-from-google.ts",
     "lint": "eslint src --ext .ts",
     "test": "jest",
     "type-check": "tsc --noEmit",
