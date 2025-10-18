@@ -27,6 +27,23 @@ Backend for Frontend service for the Drivelah Admin Portal, providing a unified 
 - 🏥 **Health Checks** for monitoring
 - 🔄 **Error Handling** with proper HTTP status codes
 
+## 📚 Documentation
+
+**Complete system documentation is available in the backend repository:**
+
+👉 **[Unified Documentation](https://github.com/drivelah/new-monitor-api/tree/main/documentation)**
+
+Or locally at: `../new-monitor-api/documentation/`
+
+### Key Documentation
+- **[Master Index](../new-monitor-api/documentation/README.md)** - Start here for complete navigation
+- **[Architecture Guide](../new-monitor-api/documentation/ARCHITECTURE.md)** - Middleware layer details
+- **[API Reference](../new-monitor-api/documentation/API_REFERENCE.md)** - All BFF endpoints documented
+- **[Permission System](../new-monitor-api/documentation/PERMISSION_SYSTEM.md)** - Complete permission guide
+- **[Development Guide](../new-monitor-api/documentation/DEVELOPMENT_GUIDE.md)** - Setup instructions
+
+> The documentation covers the entire Admin System (Frontend, Middleware, Backend) in one unified location.
+
 ## Quick Start
 
 ### Prerequisites
