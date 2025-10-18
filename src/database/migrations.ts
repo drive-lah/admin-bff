@@ -96,6 +96,31 @@ export class DatabaseMigrations {
         )
       `);
 
+      // Create admin_user_logs table for activity tracking
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS admin_user_logs (
+          id BIGSERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          action_type VARCHAR(50) NOT NULL CHECK (action_type IN ('login', 'logout', 'create', 'update', 'delete', 'view', 'export')),
+          action_description TEXT NOT NULL,
+          module VARCHAR(50),
+          http_method VARCHAR(10),
+          endpoint_path VARCHAR(255),
+          request_payload JSONB,
+          response_status INTEGER,
+          response_time_ms INTEGER,
+          ip_address INET,
+          user_agent TEXT,
+          geo_city VARCHAR(100),
+          geo_country VARCHAR(100),
+          before_state JSONB,
+          after_state JSONB,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+
       // Create indexes for performance
       await db.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_users_google_workspace_id ON users(google_workspace_id)`);
@@ -104,6 +129,14 @@ export class DatabaseMigrations {
       await db.run(`CREATE INDEX IF NOT EXISTS idx_users_manager_id ON users(manager_id)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_user_permissions_user_id ON user_permissions(user_id)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_user_permissions_module ON user_permissions(module)`);
+
+      // Create indexes for admin_user_logs table
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_logs_user_id ON admin_user_logs(user_id)`);
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_logs_email ON admin_user_logs(email)`);
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_logs_action_type ON admin_user_logs(action_type)`);
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_logs_module ON admin_user_logs(module)`);
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_logs_created_at ON admin_user_logs(created_at)`);
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_logs_ip_address ON admin_user_logs(ip_address)`);
 
       // Create function and trigger to update updated_at timestamp (PostgreSQL style)
       await db.run(`
