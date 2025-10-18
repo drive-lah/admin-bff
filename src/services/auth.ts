@@ -153,12 +153,12 @@ export class AuthService {
       email: user.email,
       name: user.name,
       role: user.role,
-      team: user.team
+      team: user.teams[0] || 'na' // Use first team or 'na' as fallback
     };
 
     return jwt.sign(payload, this.jwtSecret, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
-    });
+      expiresIn: (process.env.JWT_EXPIRES_IN as string) || '24h'
+    } as jwt.SignOptions);
   }
 
   /**
@@ -168,9 +168,9 @@ export class AuthService {
     try {
       // This is a simplified decode - in production you should verify the JWT properly
       const parts = token.split('.');
-      if (parts.length !== 3) return null;
+      if (parts.length !== 3 || !parts[1]) return null;
 
-      const payload = Buffer.from(parts[1], 'base64').toString();
+      const payload = Buffer.from(parts[1], 'base64').toString('utf8');
       return JSON.parse(payload) as DecodedGoogleJWT;
     } catch (error) {
       logger.error('Failed to decode Google JWT', { error });
