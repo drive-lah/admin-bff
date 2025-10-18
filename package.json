@@ -14,8 +14,7 @@
     "type-check": "node --max-old-space-size=4096 ./node_modules/.bin/tsc --noEmit",
     "render-build": "npm install --production=false",
     "render-start": "./node_modules/.bin/ts-node src/server.ts",
-    "heroku-postbuild": "npm run build",
-    "postinstall": "echo 'Dependencies installed, running build...' && npm run build"
+    "heroku-postbuild": "npm run build"
   },
   "keywords": [
     "drivelah",
