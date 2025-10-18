@@ -50,7 +50,19 @@ const updateUserSchema = Joi.object({
 });
 
 const setPermissionSchema = Joi.object({
-  module: Joi.string().required(),
+  module: Joi.string().valid(
+    'core',
+    'users',
+    'finance',
+    'listings',
+    'transactions',
+    'resolution',
+    'claims',
+    'host-management',
+    'ai-agents',
+    'tech',
+    'user-mgmt'
+  ).required(),
   access_level: Joi.string().valid('read', 'write', 'admin').required()
 });
 

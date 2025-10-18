@@ -105,16 +105,19 @@ app.get('/api/test/google-workspace', asyncHandler(async (req, res) => {
   }
 }));
 
-// Protected routes (require authentication)
-app.use('/api/admin', authMiddleware);
-app.use('/api/admin/ai-agents', aiAgentsRouter);
-app.use('/api/admin/finance', financeRouter);
-app.use('/api/admin/kpis', kpisRouter);
+// Protected routes with module-level permissions
+// AI Agents module - requires 'ai-agents' module access
+app.use('/api/admin/ai-agents', authMiddleware, requireModuleAccess('ai-agents', 'read'), aiAgentsRouter);
 
-// User management routes (require authentication)
-// Note: Using authMiddleware instead of authenticateToken+requireUserManagement for now
-// since the token payload structure is different
-app.use('/api/admin/users', authMiddleware, usersRouter);
+// Finance module - requires 'finance' module access
+app.use('/api/admin/finance', authMiddleware, requireModuleAccess('finance', 'read'), financeRouter);
+
+// KPIs endpoint - accessible to users with 'core' or 'host-management' module access
+// This is checked within the kpisRouter based on the team parameter
+app.use('/api/admin/kpis', authMiddleware, kpisRouter);
+
+// User Management module - requires 'user-mgmt' module access for managing internal admin users
+app.use('/api/admin/users', authMiddleware, requireModuleAccess('user-mgmt', 'read'), usersRouter);
 
 // 404 handler
 app.use('*', (req, res) => {
