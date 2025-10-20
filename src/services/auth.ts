@@ -151,7 +151,7 @@ export class AuthService {
   private async generateJWT(user: User): Promise<string> {
     // Fetch user's module access
     const moduleAccess = await this.getUserModuleAccess(user.id);
-    const modules = moduleAccess.map(m => m.module_code);
+    const modules = moduleAccess.map(m => m.module);
 
     const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
       userId: user.id,

@@ -1,5 +1,4 @@
 // Activity logging service for user action tracking
-import geoip from 'geoip-lite';
 import { db } from '../database/database';
 import { logger } from '../utils/logger';
 import { CreateLogDto, ActionType } from '../types/logs';
@@ -69,28 +68,12 @@ export class ActivityLogger {
 
   /**
    * Get geolocation information from IP address
+   * Note: Geolocation is currently disabled. Install geoip-lite package to enable.
    */
   public getGeoLocation(ipAddress: string): { city: string | null; country: string | null } {
-    try {
-      // Handle localhost and private IPs
-      if (!ipAddress || ipAddress === '::1' || ipAddress === '127.0.0.1' || ipAddress.startsWith('192.168.') || ipAddress.startsWith('10.')) {
-        return { city: null, country: null };
-      }
-
-      const geo = geoip.lookup(ipAddress);
-
-      if (geo) {
-        return {
-          city: geo.city || null,
-          country: geo.country || null
-        };
-      }
-
-      return { city: null, country: null };
-    } catch (error) {
-      console.error('Failed to get geolocation:', error);
-      return { city: null, country: null };
-    }
+    // Geolocation feature disabled - geoip-lite not installed
+    // To enable: npm install geoip-lite
+    return { city: null, country: null };
   }
 
   /**
@@ -163,6 +146,7 @@ export class ActivityLogger {
     user: { id: number; email: string };
     actionType: ActionType | string;
     actionDescription: string;
+    module?: string;
     httpMethod?: string;
     endpointPath?: string;
     requestPayload?: any;
@@ -178,8 +162,8 @@ export class ActivityLogger {
     // Get geolocation if IP is provided
     const geo = ipAddress ? this.getGeoLocation(ipAddress) : { city: null, country: null };
 
-    // Determine module from endpoint path
-    const module = endpointPath ? this.determineModule(endpointPath) : undefined;
+    // Determine module from endpoint path or use provided module
+    const module = params.module || (endpointPath ? this.determineModule(endpointPath) : undefined);
 
     return {
       user_id: user.id,
