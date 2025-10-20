@@ -111,7 +111,7 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
 
     // Get user's module access
     const moduleAccess = await authService.getUserModuleAccess(user.id);
-    const modules = moduleAccess.map(m => m.module_code);
+    const modules = moduleAccess.map(m => m.module);
 
     // Generate new JWT token
     const newToken = jwt.sign(

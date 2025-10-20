@@ -2,15 +2,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { activityLogger } from '../services/activity-logger';
 import { ActionType } from '../types/logs';
+import { AuthenticatedUser } from './auth';
 
 // Extend Express Request type to include user
 interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    email: string;
-    name: string;
-    role: string;
-  };
+  user?: AuthenticatedUser;
 }
 
 /**
@@ -64,7 +60,10 @@ export function activityLoggingMiddleware(
 
     // Create log entry
     const logData = activityLogger.createLogFromRequest({
-      user: req.user,
+      user: {
+        id: parseInt(req.user.id),
+        email: req.user.email
+      },
       actionType,
       actionDescription,
       httpMethod: req.method,

@@ -164,7 +164,7 @@ logsRouter.get('/:id', asyncHandler(async (req: Request, res: Response) => {
     after_state: log.after_state ? (typeof log.after_state === 'string' ? JSON.parse(log.after_state) : log.after_state) : null
   };
 
-  res.json(parsedLog);
+  return res.json(parsedLog);
 }));
 
 /**
@@ -297,18 +297,27 @@ logsRouter.get('/export/data', asyncHandler(async (req: Request, res: Response) 
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="activity-logs-${Date.now()}.csv"`);
-    res.send(csv);
+
+    logger.info('Activity logs exported', {
+      userId: req.user?.id,
+      email: req.user?.email,
+      format: 'csv',
+      count: logs.length
+    });
+
+    return res.send(csv);
   } else {
     // Return as JSON
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="activity-logs-${Date.now()}.json"`);
-    res.json(parsedLogs);
-  }
 
-  logger.info('Activity logs exported', {
-    userId: req.user?.id,
-    email: req.user?.email,
-    format,
-    count: logs.length
-  });
+    logger.info('Activity logs exported', {
+      userId: req.user?.id,
+      email: req.user?.email,
+      format: 'json',
+      count: logs.length
+    });
+
+    return res.json(parsedLogs);
+  }
 }));
