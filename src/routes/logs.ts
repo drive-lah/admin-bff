@@ -4,6 +4,7 @@ import { db } from '../database/database';
 import { asyncHandler } from '../middleware/error-handler';
 import { logger } from '../utils/logger';
 import { ActivityLog, LogFilter, PaginatedLogs } from '../types/logs';
+import { APIResponse } from '../types/api';
 
 export const logsRouter = Router();
 
@@ -124,7 +125,7 @@ logsRouter.get('/', asyncHandler(async (req: Request, res: Response) => {
     after_state: log.after_state ? (typeof log.after_state === 'string' ? JSON.parse(log.after_state) : log.after_state) : null
   }));
 
-  const response: PaginatedLogs = {
+  const paginatedLogs: PaginatedLogs = {
     logs: parsedLogs,
     pagination: {
       page: pageNum,
@@ -132,6 +133,12 @@ logsRouter.get('/', asyncHandler(async (req: Request, res: Response) => {
       total,
       totalPages
     }
+  };
+
+  const response: APIResponse = {
+    data: paginatedLogs,
+    message: 'Activity logs retrieved successfully',
+    timestamp: new Date().toISOString()
   };
 
   res.json(response);
@@ -164,7 +171,13 @@ logsRouter.get('/:id', asyncHandler(async (req: Request, res: Response) => {
     after_state: log.after_state ? (typeof log.after_state === 'string' ? JSON.parse(log.after_state) : log.after_state) : null
   };
 
-  return res.json(parsedLog);
+  const response: APIResponse = {
+    data: parsedLog,
+    message: 'Activity log retrieved successfully',
+    timestamp: new Date().toISOString()
+  };
+
+  return res.json(response);
 }));
 
 /**
