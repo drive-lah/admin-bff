@@ -23,6 +23,9 @@ export function activityLoggingMiddleware(
     return next();
   }
 
+  // Capture user reference (TypeScript needs this for closure)
+  const user = req.user;
+
   // Capture request start time
   const startTime = Date.now();
 
@@ -61,8 +64,8 @@ export function activityLoggingMiddleware(
     // Create log entry
     const logData = activityLogger.createLogFromRequest({
       user: {
-        id: parseInt(req.user.id),
-        email: req.user.email
+        id: parseInt(user.id),
+        email: user.email
       },
       actionType,
       actionDescription,
