@@ -22,11 +22,6 @@ export function activityLoggingMiddleware(
   res: Response,
   next: NextFunction
 ): void {
-  // Only log requests to /api/admin/* endpoints
-  if (!req.path.startsWith('/api/admin/')) {
-    return next();
-  }
-
   // Skip if user is not authenticated (auth middleware will handle this)
   if (!req.user) {
     return next();

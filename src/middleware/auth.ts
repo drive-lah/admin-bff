@@ -27,13 +27,13 @@ declare global {
 export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader) {
       throw createError('Authorization header is required', 401);
     }
 
-    const token = authHeader.startsWith('Bearer ') 
-      ? authHeader.slice(7) 
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
       : authHeader;
 
     if (!token) {
@@ -42,14 +42,32 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
 
     // Verify JWT token
     const decoded = jwt.verify(token, config.jwtSecret) as any;
-    
-    // Validate token structure
-    if (!decoded.user) {
+
+    // Validate token structure - support both flat and nested formats
+    if (!decoded.userId && !decoded.user) {
       throw createError('Invalid token structure', 401);
     }
 
-    // Attach user to request
-    req.user = decoded.user;
+    // Construct user object from token
+    // Support both flat JWT structure (userId, email, name, role, team)
+    // and nested structure (user.id, user.email, etc.)
+    if (decoded.user) {
+      // Nested structure
+      req.user = decoded.user;
+    } else {
+      // Flat structure - construct user object
+      req.user = {
+        id: decoded.userId?.toString() || '',
+        email: decoded.email || '',
+        name: decoded.name || '',
+        picture: decoded.picture || '',
+        domain: decoded.email?.split('@')[1] || '',
+        permissions: {
+          modules: decoded.modules || [],
+          role: decoded.role || 'viewer'
+        }
+      };
+    }
 
     logger.info('User authenticated', {
       userId: req.user?.id,
@@ -62,7 +80,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     if (error.name === 'JsonWebTokenError') {
       return next(createError('Invalid token', 401));
     }
-    
+
     if (error.name === 'TokenExpiredError') {
       return next(createError('Token expired', 401));
     }

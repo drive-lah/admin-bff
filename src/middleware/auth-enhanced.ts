@@ -94,6 +94,19 @@ export const requireModuleAccess = (
         return;
       }
 
+      // Super admin (GOOGLE_ADMIN_EMAIL) has access to all modules
+      const googleAdminEmail = process.env.GOOGLE_ADMIN_EMAIL;
+      if (googleAdminEmail && req.user.email === googleAdminEmail) {
+        logger.info('Super admin access granted', {
+          userId: req.user.id,
+          email: req.user.email,
+          module,
+          requiredLevel,
+        });
+        next();
+        return;
+      }
+
       const hasAccess = await authService.hasModuleAccess(parseInt(req.user.id), module, requiredLevel);
 
       if (!hasAccess) {

@@ -10,6 +10,7 @@ export interface JWTPayload {
   name: string;
   role: string;
   team: string;
+  modules: string[];
   iat: number;
   exp: number;
 }
@@ -83,8 +84,8 @@ export class AuthService {
       // Update last login
       await this.userRegistry.updateLastLogin(user.id);
 
-      // Generate JWT token
-      const token = this.generateJWT(user);
+      // Generate JWT token with module access
+      const token = await this.generateJWT(user);
 
       logger.info('Authentication successful', { userId: user.id, email: user.email });
 
@@ -147,13 +148,18 @@ export class AuthService {
   /**
    * Generate JWT token for user
    */
-  private generateJWT(user: User): string {
+  private async generateJWT(user: User): Promise<string> {
+    // Fetch user's module access
+    const moduleAccess = await this.getUserModuleAccess(user.id);
+    const modules = moduleAccess.map(m => m.module_code);
+
     const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
       userId: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      team: user.teams[0] || 'na' // Use first team or 'na' as fallback
+      team: user.teams[0] || 'na', // Use first team or 'na' as fallback
+      modules: modules
     };
 
     return jwt.sign(payload, this.jwtSecret, {

@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { AuthService } from '../services/auth';
 import { asyncHandler, createError } from '../middleware/error-handler';
 import { logger } from '../utils/logger';
 import { APIResponse } from '../types/api';
 import { activityLogger } from '../services/activity-logger';
 import { ActionType } from '../types/logs';
+import { config } from '../config/config';
 
 export const authRouter = Router();
 
@@ -81,7 +83,8 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
     // Verify existing token (even if expired, we can refresh it)
     const decoded = jwt.verify(token, config.jwtSecret, { ignoreExpiration: true }) as any;
 
-    if (!decoded.user) {
+    // Support both flat and nested JWT structures
+    if (!decoded.userId && !decoded.user) {
       throw createError('Invalid token structure', 400);
     }
 
@@ -93,22 +96,56 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
       throw createError('Token too old, please log in again', 401);
     }
 
-    // Create new token with same user data
+    // Get user ID from token (support both structures)
+    const userId = decoded.userId || decoded.user?.id;
+    if (!userId) {
+      throw createError('Invalid token: missing user ID', 400);
+    }
+
+    // Get fresh user data from registry
+    const user = await authService.refreshUser(userId);
+
+    if (!user) {
+      throw createError('User not found or inactive', 401);
+    }
+
+    // Get user's module access
+    const moduleAccess = await authService.getUserModuleAccess(user.id);
+    const modules = moduleAccess.map(m => m.module_code);
+
+    // Generate new JWT token
     const newToken = jwt.sign(
-      { user: decoded.user },
+      {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        team: user.teams[0] || 'na',
+        modules: modules
+      },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn as any }
     );
 
     logger.info('Token refreshed successfully', {
-      userId: decoded.user.id,
-      email: decoded.user.email
+      userId: user.id,
+      email: user.email
     });
 
     const response: APIResponse = {
       data: {
         token: newToken,
-        user: decoded.user,
+        user: {
+          id: user.id.toString(),
+          email: user.email,
+          name: user.name,
+          picture: user.profile_photo_url || '',
+          domain: user.email.split('@')[1] || '',
+          permissions: {
+            modules: modules,
+            role: user.role
+          }
+        },
         expiresIn: config.jwtExpiresIn
       },
       message: 'Token refreshed successfully',
