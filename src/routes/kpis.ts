@@ -668,3 +668,137 @@ kpisRouter.get('/personal-dashboard', asyncHandler(async (req, res) => {
     });
   }
 }));
+
+// GET /api/admin/kpis/flexplus/overview - Get Flex+ overview metrics
+kpisRouter.get('/flexplus/overview', asyncHandler(async (req, res) => {
+  logger.info('Fetching Flex+ overview metrics');
+
+  try {
+    const url = `${config.aiAgentsApiUrl}/api/monitor/kpis/flexplus/overview`;
+    logger.info(`Calling monitor API for Flex+ overview: ${url}`);
+
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Flex+ overview metrics retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch Flex+ overview from monitor API', {
+      error: error.message,
+      stack: error.stack,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve Flex+ overview metrics',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /api/admin/kpis/flexplus/kpis - Get Flex+ KPI metrics
+kpisRouter.get('/flexplus/kpis', asyncHandler(async (req, res) => {
+  logger.info('Fetching Flex+ KPI metrics');
+
+  try {
+    const url = `${config.aiAgentsApiUrl}/api/monitor/kpis/flexplus/kpis`;
+    logger.info(`Calling monitor API for Flex+ KPIs: ${url}`);
+
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Flex+ KPI metrics retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch Flex+ KPIs from monitor API', {
+      error: error.message,
+      stack: error.stack,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve Flex+ KPI metrics',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /api/admin/kpis/flexplus/audit-log - Get Flex+ audit log
+kpisRouter.get('/flexplus/audit-log', asyncHandler(async (req, res) => {
+  const { limit, offset } = req.query;
+  
+  logger.info('Fetching Flex+ audit log', { limit, offset });
+
+  try {
+    let url = `${config.aiAgentsApiUrl}/api/monitor/kpis/flexplus/audit-log`;
+    const params: string[] = [];
+
+    if (limit) params.push(`limit=${limit}`);
+    if (offset) params.push(`offset=${offset}`);
+
+    if (params.length > 0) {
+      url += `?${params.join('&')}`;
+    }
+
+    logger.info(`Calling monitor API for Flex+ audit log: ${url}`);
+
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Flex+ audit log retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch Flex+ audit log from monitor API', {
+      error: error.message,
+      stack: error.stack,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve Flex+ audit log',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
