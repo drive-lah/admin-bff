@@ -61,7 +61,8 @@ const setPermissionSchema = Joi.object({
     'host-management',
     'ai-agents',
     'tech',
-    'user-mgmt'
+    'user-mgmt',
+    'flexplus'
   ).required(),
   access_level: Joi.string().valid('read', 'write', 'admin').required()
 });
