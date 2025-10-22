@@ -758,7 +758,7 @@ kpisRouter.get('/flexplus/audit-log', asyncHandler(async (req, res) => {
   logger.info('Fetching Flex+ audit log', { limit, offset });
 
   try {
-    let url = `${config.aiAgentsApiUrl}/api/monitor/kpis/flexplus/audit-log`;
+    let url = `${config.aiAgentsApiUrl}/api/monitor/kpis/flexplus/contracts`;
     const params: string[] = [];
 
     if (limit) params.push(`limit=${limit}`);
