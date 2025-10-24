@@ -150,6 +150,54 @@ export class AIAgentsClient {
     }
   }
 
+  // ========================================
+  // Chat Agent Evaluation Methods
+  // ========================================
+
+  async getChatAgentEvaluationAnalytics(id: string, queryParams?: string): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/evaluations/analytics${queryParams ? '?' + queryParams : ''}`;
+      const response = await this.client.get(url);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to fetch Chat Agent evaluation analytics for ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async getChatAgentConversations(id: string, queryParams?: string): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/evaluations/conversations${queryParams ? '?' + queryParams : ''}`;
+      const response = await this.client.get(url);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to fetch Chat Agent conversations for ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async getChatAgentConversationDetail(id: string, conversationId: string): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/evaluations/conversations/${conversationId}`;
+      const response = await this.client.get(url);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to fetch Chat Agent conversation detail for ${conversationId}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async submitChatAgentRating(id: string, conversationId: string, data: { rating: number; comment?: string; reviewer_id?: string }): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/evaluations/conversations/${conversationId}/rating`;
+      const response = await this.client.post(url, data);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to submit Chat Agent rating for ${conversationId}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
   private handleError(error: any): Error {
     if (error.response) {
       // Server responded with error status

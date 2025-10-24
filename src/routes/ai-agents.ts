@@ -157,3 +157,88 @@ aiAgentsRouter.get('/:id/metrics', asyncHandler(async (req, res) => {
   
   res.json(response);
 }));
+
+// ========================================
+// Chat Agent Evaluation Routes
+// ========================================
+
+// GET /api/admin/ai-agents/:id/evaluations/analytics - Get Chat Agent evaluation analytics
+aiAgentsRouter.get('/:id/evaluations/analytics', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { start_date, end_date, market } = req.query;
+  
+  const queryParams = new URLSearchParams();
+  if (start_date) queryParams.append('start_date', start_date as string);
+  if (end_date) queryParams.append('end_date', end_date as string);
+  if (market) queryParams.append('market', market as string);
+  
+  const analytics = await aiAgentsClient.getChatAgentEvaluationAnalytics(id, queryParams.toString());
+  
+  const response: APIResponse = {
+    data: analytics,
+    message: 'Chat Agent evaluation analytics retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));
+
+// GET /api/admin/ai-agents/:id/evaluations/conversations - Get Chat Agent conversations
+aiAgentsRouter.get('/:id/evaluations/conversations', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  
+  // Forward all query params (limit, offset, filters, etc.)
+  const queryParams = new URLSearchParams(req.query as any);
+  
+  const conversations = await aiAgentsClient.getChatAgentConversations(id, queryParams.toString());
+  
+  const response: APIResponse = {
+    data: conversations,
+    message: 'Chat Agent conversations retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));
+
+// GET /api/admin/ai-agents/:id/evaluations/conversations/:conversationId - Get conversation detail
+aiAgentsRouter.get('/:id/evaluations/conversations/:conversationId', asyncHandler(async (req, res) => {
+  const { id, conversationId } = req.params;
+  
+  const conversation = await aiAgentsClient.getChatAgentConversationDetail(id, conversationId);
+  
+  const response: APIResponse = {
+    data: conversation,
+    message: 'Conversation details retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));
+
+// POST /api/admin/ai-agents/:id/evaluations/conversations/:conversationId/rating - Submit rating
+aiAgentsRouter.post('/:id/evaluations/conversations/:conversationId/rating', asyncHandler(async (req, res) => {
+  const { id, conversationId } = req.params;
+  const { rating, comment, reviewer_id } = req.body;
+  
+  logger.info('Submitting Chat Agent conversation rating', {
+    agentId: id,
+    conversationId,
+    rating,
+    userId: req.user?.id
+  });
+  
+  const result = await aiAgentsClient.submitChatAgentRating(id, conversationId, {
+    rating,
+    comment,
+    reviewer_id: reviewer_id || req.user?.email
+  });
+  
+  const response: APIResponse = {
+    data: result,
+    message: 'Rating submitted successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));

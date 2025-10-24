@@ -21,6 +21,7 @@ import { financeRouter } from './routes/finance';
 import { usersRouter } from './routes/users';
 import { kpisRouter } from './routes/kpis';
 import { logsRouter } from './routes/logs';
+import { collectionsRouter } from './routes/collections';
 
 const app = express();
 
@@ -115,6 +116,9 @@ app.get('/api/test/google-workspace', asyncHandler(async (req, res) => {
 // Protected routes with module-level permissions
 // AI Agents module - requires 'ai-agents' module access
 app.use('/api/admin/ai-agents', authMiddleware, requireModuleAccess('ai-agents', 'read'), aiAgentsRouter);
+
+// Collections/Default Filing module - requires 'ai-agents' module access (part of AI Agents)
+app.use('/api/admin/collections', authMiddleware, requireModuleAccess('ai-agents', 'read'), collectionsRouter);
 
 // Finance module - requires 'finance' module access
 app.use('/api/admin/finance', authMiddleware, requireModuleAccess('finance', 'read'), financeRouter);
