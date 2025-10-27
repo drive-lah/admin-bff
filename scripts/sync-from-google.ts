@@ -37,26 +37,25 @@ async function main() {
 
     // Fetch existing users from database
     const dbResult = await pool.query('SELECT email FROM users');
-    const dbEmails = new Set(dbResult.rows.map((u: any) => u.email));
+    const dbEmailsMap = new Map(dbResult.rows.map((u: any) => [u.email, true]));
 
-    // Find users missing in database
-    const missingUsers = allGoogleUsers.filter(u => !dbEmails.has(u.primaryEmail));
+    // Separate new and existing users
+    const newUsers = allGoogleUsers.filter(u => !dbEmailsMap.has(u.primaryEmail));
+    const existingUsers = allGoogleUsers.filter(u => dbEmailsMap.has(u.primaryEmail));
 
-    console.log(`📊 Found ${missingUsers.length} users to sync\n`);
-
-    if (missingUsers.length === 0) {
-      console.log('✅ All Google Workspace users are already in the database');
-      return;
-    }
+    console.log(`📊 Users to process:`);
+    console.log(`   New users to insert: ${newUsers.length}`);
+    console.log(`   Existing users to update: ${existingUsers.length}\n`);
 
     console.log('🔄 Starting sync...\n');
 
-    let successCount = 0;
+    let insertedCount = 0;
+    let updatedCount = 0;
     let failCount = 0;
 
-    for (const user of missingUsers) {
+    // Process new users (INSERT)
+    for (const user of newUsers) {
       try {
-        // Determine default values
         const email = user.primaryEmail;
         const name = user.name.fullName;
         const googleId = user.id;
@@ -102,23 +101,69 @@ async function main() {
           user.creationTime
         ]);
 
-        console.log(`✅ Synced: ${email} (${name})`);
-        console.log(`   Google ID: ${googleId}`);
-        console.log(`   Org Unit: ${orgUnit}`);
-        console.log(`   Status: ${status}`);
-        console.log();
+        console.log(`✅ Inserted: ${email} (${name})`);
+        console.log(`   Status: ${status}\n`);
 
-        successCount++;
+        insertedCount++;
         await new Promise(resolve => setTimeout(resolve, 100));
 
       } catch (error: any) {
-        console.error(`❌ Failed to sync ${user.primaryEmail}:`, error.message);
+        console.error(`❌ Failed to insert ${user.primaryEmail}:`, error.message);
+        failCount++;
+      }
+    }
+
+    // Process existing users (UPDATE)
+    for (const user of existingUsers) {
+      try {
+        const email = user.primaryEmail;
+        const name = user.name.fullName;
+        const googleId = user.id;
+        const orgUnit = user.orgUnitPath;
+        const photoUrl = user.thumbnailPhotoUrl || null;
+        const lastLogin = user.lastLoginTime || null;
+        const status = user.suspended ? 'suspended' : 'active';
+
+        // Update existing user - preserves role, teams, permissions
+        await pool.query(`
+          UPDATE users
+          SET
+            name = $1,
+            status = $2,
+            google_workspace_id = $3,
+            google_org_unit = $4,
+            profile_photo_url = $5,
+            last_login_at = $6,
+            google_account_created_at = $7,
+            updated_at = CURRENT_TIMESTAMP,
+            last_google_sync_at = CURRENT_TIMESTAMP
+          WHERE email = $8
+        `, [
+          name,
+          status,
+          googleId,
+          orgUnit,
+          photoUrl,
+          lastLogin,
+          user.creationTime,
+          email
+        ]);
+
+        console.log(`🔄 Updated: ${email} (${name})`);
+        console.log(`   Status: ${status}\n`);
+
+        updatedCount++;
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+      } catch (error: any) {
+        console.error(`❌ Failed to update ${user.primaryEmail}:`, error.message);
         failCount++;
       }
     }
 
     console.log('\n✨ Sync Complete!\n');
-    console.log(`✅ Successfully synced: ${successCount} users`);
+    console.log(`✅ Inserted new users: ${insertedCount}`);
+    console.log(`🔄 Updated existing users: ${updatedCount}`);
     console.log(`❌ Failed: ${failCount} users`);
     console.log();
 

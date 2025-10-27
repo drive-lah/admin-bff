@@ -375,32 +375,31 @@ kpisRouter.get('/personal-dashboard', asyncHandler(async (req, res) => {
   }
 
   // Determine which user's dashboard to fetch
-  const targetUserId = viewAsUserId || user.userId;
-  let targetUserName = user.name;
-  let targetUserTeam = user.team;
-
-  // If viewing as another user, fetch their details from database
-  if (viewAsUserId && viewAsUserId !== user.userId) {
-    logger.info(`Super admin ${user.email} viewing dashboard for user ${viewAsUserId}`);
-
-    const targetUser = await userRegistry.getUserById(viewAsUserId);
-    if (!targetUser) {
-      return res.status(404).json({
-        error: {
-          message: `User with ID ${viewAsUserId} not found`,
-          statusCode: 404,
-          timestamp: new Date().toISOString(),
-          path: req.path,
-          method: req.method,
-        },
-      });
-    }
-
-    targetUserName = targetUser.name;
-    // Get the first team from the teams array
-    targetUserTeam = targetUser.teams && targetUser.teams.length > 0 ? targetUser.teams[0] : 'core';
-    logger.info(`Viewing as user: ${targetUser.name} (${targetUser.email}), team: ${targetUserTeam}`);
+  const targetUserId = viewAsUserId || parseInt(user.id);
+  
+  // Always fetch user details from database to get current team info
+  const targetUser = await userRegistry.getUserById(targetUserId);
+  if (!targetUser) {
+    return res.status(404).json({
+      error: {
+        message: `User with ID ${targetUserId} not found`,
+        statusCode: 404,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
   }
+
+  const targetUserName = targetUser.name;
+  const targetUserTeam = targetUser.teams && targetUser.teams.length > 0 ? targetUser.teams[0] : 'core';
+
+  // Log if super admin viewing another user
+  if (viewAsUserId && viewAsUserId !== parseInt(user.id)) {
+    logger.info(`Super admin ${user.email} viewing dashboard for user ${viewAsUserId}`);
+  }
+  
+  logger.info(`Viewing as user: ${targetUser.name} (${targetUser.email}), team: ${targetUserTeam}`);
 
   const userId = targetUserId;
   const team = targetUserTeam;
