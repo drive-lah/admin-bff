@@ -375,12 +375,12 @@ kpisRouter.get('/personal-dashboard', asyncHandler(async (req, res) => {
   }
 
   // Determine which user's dashboard to fetch
-  const targetUserId = viewAsUserId || user.userId;
+  const targetUserId = viewAsUserId || parseInt(user.id);
   let targetUserName = user.name;
-  let targetUserTeam = user.team;
+  let targetUserTeam = Array.isArray(user.teams) ? user.teams[0] : (user.team || 'core');
 
   // If viewing as another user, fetch their details from database
-  if (viewAsUserId && viewAsUserId !== user.userId) {
+  if (viewAsUserId && viewAsUserId !== parseInt(user.id)) {
     logger.info(`Super admin ${user.email} viewing dashboard for user ${viewAsUserId}`);
 
     const targetUser = await userRegistry.getUserById(viewAsUserId);
