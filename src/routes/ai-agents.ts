@@ -242,3 +242,69 @@ aiAgentsRouter.post('/:id/evaluations/conversations/:conversationId/rating', asy
   
   res.json(response);
 }));
+
+// GET /api/admin/ai-agents/:id/evaluations/weekly-metrics - Get weekly metrics
+aiAgentsRouter.get('/:id/evaluations/weekly-metrics', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const queryParams = new URLSearchParams(req.query as any).toString();
+  
+  logger.info('Fetching weekly metrics', {
+    agentId: id,
+    queryParams,
+    userId: req.user?.id
+  });
+  
+  const data = await aiAgentsClient.getWeeklyMetrics(id, queryParams);
+  
+  const response: APIResponse = {
+    data,
+    message: 'Weekly metrics retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));
+
+// GET /api/admin/ai-agents/:id/evaluations/gap-analysis - Get gap analysis
+aiAgentsRouter.get('/:id/evaluations/gap-analysis', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const queryParams = new URLSearchParams(req.query as any).toString();
+  
+  logger.info('Fetching gap analysis', {
+    agentId: id,
+    queryParams,
+    userId: req.user?.id
+  });
+  
+  const data = await aiAgentsClient.getGapAnalysis(id, queryParams);
+  
+  const response: APIResponse = {
+    data,
+    message: 'Gap analysis retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));
+
+// GET /api/admin/ai-agents/:id/evaluations/sentiment-analysis - Get sentiment analysis
+aiAgentsRouter.get('/:id/evaluations/sentiment-analysis', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const queryParams = new URLSearchParams(req.query as any).toString();
+  
+  logger.info('Fetching sentiment analysis', {
+    agentId: id,
+    queryParams,
+    userId: req.user?.id
+  });
+  
+  const data = await aiAgentsClient.getSentimentAnalysis(id, queryParams);
+  
+  const response: APIResponse = {
+    data,
+    message: 'Sentiment analysis retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+  
+  res.json(response);
+}));

@@ -198,6 +198,39 @@ export class AIAgentsClient {
     }
   }
 
+  async getWeeklyMetrics(id: string, queryParams?: string): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/evaluations/weekly-metrics${queryParams ? '?' + queryParams : ''}`;
+      const response = await this.client.get(url);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to fetch weekly metrics for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async getGapAnalysis(id: string, queryParams?: string): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/evaluations/gap-analysis${queryParams ? '?' + queryParams : ''}`;
+      const response = await this.client.get(url);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to fetch gap analysis for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async getSentimentAnalysis(id: string, queryParams?: string): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/evaluations/sentiment-analysis${queryParams ? '?' + queryParams : ''}`;
+      const response = await this.client.get(url);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to fetch sentiment analysis for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
   private handleError(error: any): Error {
     if (error.response) {
       // Server responded with error status
