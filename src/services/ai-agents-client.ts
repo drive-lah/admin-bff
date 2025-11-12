@@ -5,6 +5,7 @@ import { Agent, AgentUpdateRequest, AgentActionRequest } from '../types/api';
 
 export class AIAgentsClient {
   private client: AxiosInstance;
+  private listingAgentClient: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
@@ -17,6 +18,16 @@ export class AIAgentsClient {
         ...(config.internalApiKey && {
           'X-Internal-API-Key': config.internalApiKey
         }),
+      },
+    });
+
+    // Separate client for listing agent operations
+    this.listingAgentClient = axios.create({
+      baseURL: config.listingAgentApiUrl,
+      timeout: 60000, // Longer timeout for listing agent operations
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
       },
     });
 
@@ -227,6 +238,117 @@ export class AIAgentsClient {
       return response.data;
     } catch (error: any) {
       logger.error(`Failed to fetch sentiment analysis for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  // ========================================
+  // Listing Agent Operational Methods
+  // ========================================
+
+  async getListings(id: string, queryParams?: string): Promise<any> {
+    try {
+      // Listing agent operations go through listing agent API
+      const url = `/api/listing-agent/production-listings${queryParams ? '?' + queryParams : ''}`;
+      logger.info(`Calling listing agent API: ${url}`);
+      const response = await this.listingAgentClient.get(url);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to fetch listings for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async previewAssessment(id: string, body: any): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/actions/assess/preview`;
+      const response = await this.client.post(url, body);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to preview assessment for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async runAssessment(id: string, body: any): Promise<any> {
+    try {
+      // Determine if single or batch based on filters
+      const isSingle = body.filters?.listingIds?.length === 1;
+      const url = isSingle ? `/api/listing-agent/quality-check` : `/api/listing-agent/batch-quality-check`;
+
+      // Transform request body to match listing agent API
+      const listingAgentBody = isSingle ? {
+        listing_id: body.filters.listingIds[0],
+        region: body.region || 'sg',
+        environment: body.environment === 'production' ? 'prod' : 'test'
+      } : {
+        region: body.region || 'sg',
+        environment: body.environment === 'production' ? 'prod' : 'test',
+        listing_ids: body.filters?.listingIds,
+        limit: body.filters?.limit,
+        offset: body.filters?.offset
+      };
+
+      logger.info(`Calling listing agent API: POST ${url}`, listingAgentBody);
+      const response = await this.listingAgentClient.post(url, listingAgentBody);
+
+      // Transform response to match expected frontend format
+      return {
+        assessed: isSingle ? 1 : (body.filters?.listingIds?.length || 0),
+        failed: 0,
+        duration: 0,
+        output: response.data.output,
+        status: response.data.status
+      };
+    } catch (error: any) {
+      logger.error(`Failed to run assessment for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async previewExecution(id: string, body: any): Promise<any> {
+    try {
+      const url = `/api/monitor/agents/${id}/actions/execute/preview`;
+      const response = await this.client.post(url, body);
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Failed to preview execution for agent ${id}`, { error: error.message });
+      throw this.handleError(error);
+    }
+  }
+
+  async executeChanges(id: string, body: any): Promise<any> {
+    try {
+      // Determine if single or batch based on filters
+      const isSingle = body.filters?.listingIds?.length === 1;
+      const url = isSingle ? `/api/listing-agent/execute` : `/api/listing-agent/batch-execute`;
+
+      // Transform request body to match listing agent API
+      const listingAgentBody = isSingle ? {
+        listing_id: body.filters.listingIds[0],
+        region: body.region || 'sg',
+        environment: body.environment === 'production' ? 'prod' : 'test'
+      } : {
+        region: body.region || 'sg',
+        environment: body.environment === 'production' ? 'prod' : 'test',
+        listing_ids: body.filters?.listingIds,
+        limit: body.filters?.limit,
+        offset: body.filters?.offset
+      };
+
+      logger.info(`Calling listing agent API: POST ${url}`, listingAgentBody);
+      const response = await this.listingAgentClient.post(url, listingAgentBody);
+
+      // Transform response to match expected frontend format
+      return {
+        executed: isSingle ? 1 : (body.filters?.listingIds?.length || 0),
+        failed: 0,
+        duration: 0,
+        output: response.data.output,
+        status: response.data.status
+      };
+    } catch (error: any) {
+      logger.error(`Failed to execute changes for agent ${id}`, { error: error.message });
       throw this.handleError(error);
     }
   }

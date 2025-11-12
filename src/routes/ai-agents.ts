@@ -305,6 +305,120 @@ aiAgentsRouter.get('/:id/evaluations/sentiment-analysis', asyncHandler(async (re
     message: 'Sentiment analysis retrieved successfully',
     timestamp: new Date().toISOString(),
   };
-  
+
+  res.json(response);
+}));
+
+// ========================================
+// Listing Agent Operational Routes
+// ========================================
+
+// GET /api/admin/ai-agents/:id/listings - Get production listings
+aiAgentsRouter.get('/:id/listings', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const queryParams = new URLSearchParams(req.query as any).toString();
+
+  logger.info('Fetching listings', {
+    agentId: id,
+    queryParams,
+    userId: req.user?.id
+  });
+
+  const data = await aiAgentsClient.getListings(id, queryParams);
+
+  const response: APIResponse = {
+    data,
+    message: 'Listings retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
+}));
+
+// POST /api/admin/ai-agents/:id/actions/assess/preview - Preview assessment
+aiAgentsRouter.post('/:id/actions/assess/preview', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+
+  logger.info('Previewing assessment', {
+    agentId: id,
+    body,
+    userId: req.user?.id
+  });
+
+  const data = await aiAgentsClient.previewAssessment(id, body);
+
+  const response: APIResponse = {
+    data,
+    message: 'Assessment preview generated successfully',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
+}));
+
+// POST /api/admin/ai-agents/:id/actions/assess - Run assessment
+aiAgentsRouter.post('/:id/actions/assess', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+
+  logger.info('Running assessment', {
+    agentId: id,
+    body,
+    userId: req.user?.id
+  });
+
+  const data = await aiAgentsClient.runAssessment(id, body);
+
+  const response: APIResponse = {
+    data,
+    message: 'Assessment completed successfully',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
+}));
+
+// POST /api/admin/ai-agents/:id/actions/execute/preview - Preview execution
+aiAgentsRouter.post('/:id/actions/execute/preview', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+
+  logger.info('Previewing execution', {
+    agentId: id,
+    body,
+    userId: req.user?.id
+  });
+
+  const data = await aiAgentsClient.previewExecution(id, body);
+
+  const response: APIResponse = {
+    data,
+    message: 'Execution preview generated successfully',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
+}));
+
+// POST /api/admin/ai-agents/:id/actions/execute - Execute changes
+aiAgentsRouter.post('/:id/actions/execute', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+
+  logger.info('Executing changes', {
+    agentId: id,
+    body,
+    userId: req.user?.id
+  });
+
+  const data = await aiAgentsClient.executeChanges(id, body);
+
+  const response: APIResponse = {
+    data,
+    message: 'Changes executed successfully',
+    timestamp: new Date().toISOString(),
+  };
+
   res.json(response);
 }));
