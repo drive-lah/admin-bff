@@ -801,3 +801,88 @@ kpisRouter.get('/flexplus/audit-log', asyncHandler(async (req, res) => {
     });
   }
 }));
+
+// GET /api/admin/kpis/flexplus/leads - Get Flex+ lead management data
+kpisRouter.get('/flexplus/leads', asyncHandler(async (req, res) => {
+  logger.info('Fetching Flex+ lead management data');
+
+  try {
+    const url = `${config.aiAgentsApiUrl}/api/monitor/kpis/flexplus/leads`;
+    logger.info(`Calling monitor API for Flex+ leads: ${url}`);
+
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Flex+ lead management data retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to fetch Flex+ leads from monitor API', {
+      error: error.message,
+      stack: error.stack,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve Flex+ lead management data',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// PATCH /api/admin/kpis/flexplus/leads/:leadId - Update a Flex+ lead
+kpisRouter.patch('/flexplus/leads/:leadId', asyncHandler(async (req, res) => {
+  const { leadId } = req.params;
+  logger.info(`Updating Flex+ lead: ${leadId}`, { updates: req.body });
+
+  try {
+    const url = `${config.aiAgentsApiUrl}/api/monitor/kpis/flexplus/leads/${leadId}`;
+    logger.info(`Calling monitor API to update Flex+ lead: ${url}`);
+
+    const response = await axios.patch(url, req.body, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Flex+ lead updated successfully',
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(apiResponse);
+
+  } catch (error: any) {
+    logger.error('Failed to update Flex+ lead via monitor API', {
+      leadId,
+      error: error.message,
+      stack: error.stack,
+    });
+
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to update Flex+ lead',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
