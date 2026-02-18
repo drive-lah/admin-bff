@@ -163,6 +163,53 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
   }
 }));
 
+// POST /api/auth/dev-login - Dev-only login bypass (NOT available in production)
+authRouter.post('/dev-login', asyncHandler(async (req, res) => {
+  if (config.nodeEnv === 'production') {
+    throw createError('Dev login not available in production', 403);
+  }
+
+  const { email = 'gauravs@drivelah.sg', name = 'Gaurav (Dev)' } = req.body || {};
+
+  const token = jwt.sign(
+    {
+      userId: 1,
+      email,
+      name,
+      role: 'admin',
+      team: 'finance',
+      modules: ['finance', 'core', 'ai-agents', 'user-mgmt', 'host-management', 'kpis', '*'],
+    },
+    config.jwtSecret,
+    { expiresIn: config.jwtExpiresIn as any }
+  );
+
+  logger.info('Dev login issued', { email });
+
+  const response: APIResponse = {
+    data: {
+      token,
+      user: {
+        id: '1',
+        email,
+        name,
+        picture: '',
+        role: 'admin',
+        teams: ['finance'],
+        permissions: {
+          modules: ['finance', 'core', 'ai-agents', 'user-mgmt', 'host-management', 'kpis', '*'],
+          role: 'admin'
+        }
+      },
+      expiresIn: config.jwtExpiresIn
+    },
+    message: 'Dev login successful',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
+}));
+
 // POST /api/auth/logout - Logout (client-side token invalidation)
 authRouter.post('/logout', asyncHandler(async (req, res) => {
   // Note: With JWT, we can't really invalidate tokens server-side without a blacklist

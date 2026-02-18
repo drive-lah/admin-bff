@@ -18,12 +18,21 @@ import { aiAgentsRouter } from './routes/ai-agents';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
 import { financeRouter } from './routes/finance';
+import { financeAccountingRouter } from './routes/finance-accounting';
 import { usersRouter } from './routes/users';
 import { kpisRouter } from './routes/kpis';
 import { logsRouter } from './routes/logs';
 // import { collectionsRouter } from './routes/collections'; // Temporarily disabled - multer dependency issue
 
 const app = express();
+
+// CORS configuration - MUST be before rate limiting so preflight OPTIONS get CORS headers
+app.use(cors({
+  origin: config.allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Security middleware
 app.use(helmet({
@@ -38,23 +47,15 @@ app.use(helmet({
   crossOriginOpenerPolicy: { policy: "unsafe-none" }, // Allow Google OAuth popups
 }));
 
-// Rate limiting
+// Rate limiting (higher limit for local dev)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: config.nodeEnv === 'development' ? 1000 : 100,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
-
-// CORS configuration
-app.use(cors({
-  origin: config.allowedOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
 
 // Body parsing
 app.use(compression());
@@ -123,6 +124,9 @@ app.use('/api/admin/ai-agents', authMiddleware, requireModuleAccess('ai-agents',
 
 // Finance module - requires 'finance' module access
 app.use('/api/admin/finance', authMiddleware, requireModuleAccess('finance', 'read'), financeRouter);
+
+// Finance Accounting module - requires 'finance' write access for accounting operations
+app.use('/api/admin/finance', authMiddleware, requireModuleAccess('finance', 'write'), financeAccountingRouter);
 
 // KPIs endpoint - accessible to users with 'core' or 'host-management' module access
 // This is checked within the kpisRouter based on the team parameter
