@@ -21,6 +21,7 @@ import { financeRouter } from './routes/finance';
 import { usersRouter } from './routes/users';
 import { kpisRouter } from './routes/kpis';
 import { logsRouter } from './routes/logs';
+import { verificationRouter } from './routes/verification';
 // import { collectionsRouter } from './routes/collections'; // Temporarily disabled - multer dependency issue
 
 const app = express();
@@ -133,6 +134,9 @@ app.use('/api/admin/users', authMiddleware, requireModuleAccess('user-mgmt', 're
 
 // Activity Logs module - requires 'user-mgmt' module access (part of user management)
 app.use('/api/admin/logs', authMiddleware, requireModuleAccess('user-mgmt', 'read'), logsRouter);
+
+// Verification module - requires 'verification' module access
+app.use('/api/admin/verifications', authMiddleware, requireModuleAccess('verification', 'read'), verificationRouter);
 
 // 404 handler
 app.use('*', (req, res) => {
