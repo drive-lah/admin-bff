@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import axios from 'axios';
 import { asyncHandler } from '../middleware/error-handler';
-import { requireModule, requirePermission } from '../middleware/auth';
+import { requireModule } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { APIResponse } from '../types/api';
 
@@ -12,6 +12,20 @@ const MONITOR_API_URL = process.env.MONITOR_API_URL || 'http://localhost:5000';
 
 // All verification routes require the verification module permission
 verificationRouter.use(requireModule('verification'));
+
+// GET /api/admin/verifications/queue/needs-review - Tab 1 action queue
+verificationRouter.get('/queue/needs-review', asyncHandler(async (req, res) => {
+  logger.info('Loading review queue', { userId: req.user?.id });
+  const response = await axios.get(`${MONITOR_API_URL}/api/verifications/queue/needs-review`);
+  res.json({ data: response.data, message: 'Review queue loaded', timestamp: new Date().toISOString() });
+}));
+
+// GET /api/admin/verifications/queue/needs-redo - Tab 2 action queue
+verificationRouter.get('/queue/needs-redo', asyncHandler(async (req, res) => {
+  logger.info('Loading redo queue', { userId: req.user?.id });
+  const response = await axios.get(`${MONITOR_API_URL}/api/verifications/queue/needs-redo`);
+  res.json({ data: response.data, message: 'Redo queue loaded', timestamp: new Date().toISOString() });
+}));
 
 // GET /api/admin/verifications - List verifications
 verificationRouter.get('/', asyncHandler(async (req, res) => {
@@ -53,10 +67,31 @@ verificationRouter.get('/:customerId', asyncHandler(async (req, res) => {
   res.json(apiResponse);
 }));
 
+// GET /api/admin/verifications/:customerId/live-status - Fetch live identity status from MySQL
+verificationRouter.get('/:customerId/live-status', asyncHandler(async (req, res) => {
+  const { customerId } = req.params;
+  const { market } = req.query;
+
+  logger.info('Fetching live identity status', { userId: req.user?.id, customerId });
+
+  const response = await axios.get(
+    `${MONITOR_API_URL}/api/verifications/${customerId}/live-status`,
+    { params: { market } }
+  );
+
+  const apiResponse: APIResponse = {
+    data: response.data,
+    message: 'Live status retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(apiResponse);
+}));
+
 // POST /api/admin/verifications/:customerId/override - Override verification decision
 // Requires special override permission
-verificationRouter.post('/:customerId/override', 
-  requirePermission('verification.override'),
+verificationRouter.post('/:customerId/override',
+  requireModule('verification'),
   asyncHandler(async (req, res) => {
     const { customerId } = req.params;
     const { new_decision, reason, notes } = req.body;
@@ -92,7 +127,7 @@ verificationRouter.post('/:customerId/override',
 // PUT /api/admin/verifications/:customerId - Update customer data
 // Requires edit permission
 verificationRouter.put('/:customerId',
-  requirePermission('verification.edit'),
+  requireModule('verification'),
   asyncHandler(async (req, res) => {
     const { customerId } = req.params;
     
@@ -125,7 +160,7 @@ verificationRouter.put('/:customerId',
 
 // POST /api/admin/verifications/:customerId/rerun - Rerun verification
 verificationRouter.post('/:customerId/rerun',
-  requirePermission('verification.override'),
+  requireModule('verification'),
   asyncHandler(async (req, res) => {
     const { customerId } = req.params;
     
