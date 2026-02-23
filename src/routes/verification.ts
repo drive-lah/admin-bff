@@ -47,6 +47,25 @@ verificationRouter.get('/', asyncHandler(async (req, res) => {
   res.json(apiResponse);
 }));
 
+// GET /api/admin/verifications/agent-status - Kill-switch status
+verificationRouter.get('/agent-status', asyncHandler(async (req, res) => {
+  const response = await axios.get(`${MONITOR_API_URL}/api/verifications/agent-status`, {
+    headers: { 'X-Admin-Secret': process.env.ADMIN_SECRET || '' }
+  });
+  res.json({ data: response.data, message: 'Agent status retrieved', timestamp: new Date().toISOString() });
+}));
+
+// POST /api/admin/verifications/agent-toggle - Flip kill-switch
+verificationRouter.post('/agent-toggle', asyncHandler(async (req, res) => {
+  logger.info('Toggling verification agent kill switch', { userId: req.user?.id, body: req.body });
+  const response = await axios.post(
+    `${MONITOR_API_URL}/api/verifications/agent-toggle`,
+    req.body,
+    { headers: { 'X-Admin-Secret': process.env.ADMIN_SECRET || '' } }
+  );
+  res.json({ data: response.data, message: 'Agent toggled', timestamp: new Date().toISOString() });
+}));
+
 // GET /api/admin/verifications/:customerId - Get verification detail
 verificationRouter.get('/:customerId', asyncHandler(async (req, res) => {
   const { customerId } = req.params;
