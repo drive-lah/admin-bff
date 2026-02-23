@@ -202,3 +202,53 @@ authRouter.post('/logout', asyncHandler(async (req, res) => {
 
   res.json(response);
 }));
+
+// POST /api/auth/dev-login - Development bypass (never active in production)
+authRouter.post('/dev-login', asyncHandler(async (req, res) => {
+  if (process.env.NODE_ENV !== 'development') {
+    throw createError('Not available outside development', 403);
+  }
+
+  const { email } = req.body;
+  if (!email) throw createError('Email is required', 400);
+
+  const allModules = [
+    'core', 'ai-agents', 'finance', 'admin-management', 'host-management',
+    'resolution', 'claims', 'flexplus', 'verification'
+  ];
+
+  const token = jwt.sign(
+    {
+      userId: 9999,
+      email,
+      name: email.split('@')[0],
+      role: 'admin',
+      team: 'na',
+      modules: allModules,
+    },
+    config.jwtSecret,
+    { expiresIn: '24h' } as jwt.SignOptions
+  );
+
+  logger.info('Dev login used', { email });
+
+  const response: APIResponse = {
+    data: {
+      token,
+      user: {
+        id: '9999',
+        email,
+        name: email.split('@')[0],
+        picture: '',
+        role: 'admin',
+        teams: [],
+        permissions: { modules: allModules, role: 'admin' }
+      },
+      expiresIn: '24h'
+    },
+    message: 'Dev login successful',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
+}));
