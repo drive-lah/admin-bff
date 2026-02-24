@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import axios from 'axios';
 import { asyncHandler } from '../middleware/error-handler';
-import { requireModule } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { APIResponse } from '../types/api';
+import { config } from '../config/config';
 
 export const verificationRouter = Router();
 
-// Monitor API base URL (from environment or config)
-const MONITOR_API_URL = process.env.MONITOR_API_URL || 'http://localhost:5000';
+// Monitor API base URL — same Flask service used by ai-agents
+const MONITOR_API_URL = config.aiAgentsApiUrl;
 
 // All verification routes require the verification module permission
 // verificationRouter.use(requireModule('verification'));
