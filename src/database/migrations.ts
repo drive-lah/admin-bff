@@ -207,7 +207,7 @@ export class DatabaseMigrations {
 
       if (adminUser) {
         // Grant all module permissions to the admin
-        const modules = ['users', 'finance', 'ai-agents', 'tech', 'listings', 'transactions', 'resolution', 'claims', 'host-management'];
+        const modules = ['users', 'finance', 'ai-agents', 'tech', 'listings', 'transactions', 'resolution', 'claims', 'host-management', 'verification'];
 
         for (const module of modules) {
           await db.run(`
