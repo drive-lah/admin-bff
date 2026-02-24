@@ -107,6 +107,12 @@ export const requireModuleAccess = (
         return;
       }
 
+      // Admin-role users have access to all modules
+      if (req.user.permissions.role === 'admin') {
+        next();
+        return;
+      }
+
       const hasAccess = await authService.hasModuleAccess(parseInt(req.user.id), module, requiredLevel);
 
       if (!hasAccess) {
