@@ -135,8 +135,8 @@ app.use('/api/admin/users', authMiddleware, requireModuleAccess('user-mgmt', 're
 // Activity Logs module - requires 'user-mgmt' module access (part of user management)
 app.use('/api/admin/logs', authMiddleware, requireModuleAccess('user-mgmt', 'read'), logsRouter);
 
-// Verification module - requires 'verification' module access
-app.use('/api/admin/verifications', authMiddleware, requireModuleAccess('verification', 'read'), verificationRouter);
+// Verification module - accessible to all authenticated admin users
+app.use('/api/admin/verifications', authMiddleware, verificationRouter);
 
 // 404 handler
 app.use('*', (req, res) => {
