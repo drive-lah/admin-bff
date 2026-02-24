@@ -162,6 +162,15 @@ export class DatabaseMigrations {
         $$
       `);
 
+      // Grant 'verification' module access to all admin-role users (idempotent)
+      await db.run(`
+        INSERT INTO user_permissions (user_id, module, access_level, granted_by, granted_at)
+        SELECT u.id, 'verification', 'admin', u.id, CURRENT_TIMESTAMP
+        FROM users u
+        WHERE u.role = 'admin'
+        ON CONFLICT (user_id, module) DO NOTHING
+      `);
+
       logger.info('Database migrations completed successfully');
     } catch (error) {
       logger.error('Error running database migrations:', error);
