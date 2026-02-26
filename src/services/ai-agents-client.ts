@@ -131,9 +131,12 @@ export class AIAgentsClient {
     }
   }
 
-  async getAgentAnalytics(id: string): Promise<any> {
+  async getAgentAnalytics(id: string, queryParams?: string): Promise<any> {
     try {
-      const response = await this.client.get(`/api/monitor/agents/${id}/analytics`);
+      const url = queryParams 
+        ? `/api/monitor/agents/${id}/analytics?${queryParams}`
+        : `/api/monitor/agents/${id}/analytics`;
+      const response = await this.client.get(url);
       return response.data;
     } catch (error: any) {
       logger.error(`Failed to fetch analytics for agent ${id}`, { error: error.message });
