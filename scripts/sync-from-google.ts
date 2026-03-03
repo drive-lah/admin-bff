@@ -192,7 +192,16 @@ async function main() {
     const dbResult = await pool.query('SELECT email, status FROM users WHERE status != $1', ['deleted']);
     const allDbUsers = dbResult.rows;
     
+    console.log(`\n🔍 Deletion check:`);
+    console.log(`   Google users (existingUsers): ${existingUsers.length}`);
+    console.log(`   DB users (non-deleted): ${allDbUsers.length}`);
+    
     const deletedUsers = allDbUsers.filter((u: any) => !dbEmails.has(u.email));
+    
+    console.log(`   Users to mark as deleted: ${deletedUsers.length}`);
+    if (deletedUsers.length > 0) {
+      console.log(`   Emails: ${deletedUsers.map((u: any) => u.email).join(', ')}\n`);
+    }
     
     let deletedCount = 0;
     for (const user of deletedUsers) {
