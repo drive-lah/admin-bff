@@ -608,16 +608,16 @@ export class UserRegistryService {
   public async getUserStats(): Promise<{
     total: number;
     active: number;
-    inactive: number;
     suspended: number;
+    deleted: number;
     byRole: { role: string; count: number }[];
     byTeam: { team: string; count: number }[];
   }> {
     try {
       const total = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM users');
       const active = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM users WHERE status = \'active\'');
-      const inactive = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM users WHERE status = \'inactive\'');
       const suspended = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM users WHERE status = \'suspended\'');
+      const deleted = await db.get<{ count: number }>('SELECT COUNT(*) as count FROM users WHERE status = \'deleted\'');
 
       const byRole = await db.all<{ role: string; count: number }>(`
         SELECT role, COUNT(*) as count FROM users GROUP BY role ORDER BY count DESC
@@ -633,8 +633,8 @@ export class UserRegistryService {
       return {
         total: total?.count || 0,
         active: active?.count || 0,
-        inactive: inactive?.count || 0,
         suspended: suspended?.count || 0,
+        deleted: deleted?.count || 0,
         byRole,
         byTeam
       };
