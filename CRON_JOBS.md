@@ -14,6 +14,18 @@ The admin-bff has scheduled jobs that run on Render to keep user data synchroniz
 - **Frequency**: Every 2 hours
 - **Command**: `npm run sync-google`
 - **Purpose**: Synchronize users from Google Workspace to the database
+- **Status**: Currently running and functional
+
+### Render Dashboard Configuration
+
+**Location**: Render Dashboard → Services → drivelah-admin-bff → Cron Jobs
+
+**Settings**:
+- Frequency: Every 2 hours (0 */2 * * *)
+- Command: `npm run sync-google`
+- Runtime: Node.js
+
+**Note**: This is NOT defined in render.yaml (not version-controlled). It must be configured directly in the Render dashboard.
 
 ### What It Does
 
@@ -27,11 +39,19 @@ The admin-bff has scheduled jobs that run on Render to keep user data synchroniz
    - Updates existing users with latest Google data (name, status, org unit, photo, last login)
    - **Marks users as deleted** if they exist in database but not in Google Workspace
 
-3. **Soft Delete Handling**:
+3. **Soft Delete Handling** (FIXED as of 2026-03-03):
    - Users removed from Google are marked with `status = 'deleted'`
    - `deleted_at` timestamp recorded for compliance audit trail
    - All user data preserved (no hard delete)
    - Deleted users excluded from active queries automatically
+   - **Bug Fix Applied**: Now correctly identifies users deleted from Google by comparing against ALL Google users returned, not just existing DB users
+
+### Recent Updates
+
+**Bug Fix (Commit e5de422)**:
+- Fixed deletion detection logic to correctly identify users removed from Google Workspace
+- The cron job will now properly mark deleted users as of the next execution
+- No action needed - the next cron run will fix any previously missed deletions
 
 ### Output
 
