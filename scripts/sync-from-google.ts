@@ -192,8 +192,8 @@ async function main() {
     const googleEmails = new Set(allGoogleUsers.map(u => u.primaryEmail));
     
     // Get ALL database users who are not already deleted
-    const dbResult = await pool.query('SELECT email, status FROM users WHERE status != $1', ['deleted']);
-    const allDbUsers = dbResult.rows;
+    const dbUsersResult = await pool.query('SELECT email, status FROM users WHERE status != $1', ['deleted']);
+    const allDbUsers = dbUsersResult.rows;
     
     console.log(`\n🔍 Deletion check:`);
     console.log(`   Google users returned: ${allGoogleUsers.length}`);
