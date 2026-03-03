@@ -188,15 +188,19 @@ async function main() {
     }
 
     // Process deleted users (MARK AS DELETED if in DB but not in Google)
-    const dbEmails = new Set(existingUsers.map(u => u.primaryEmail));
+    // Get ALL Google users currently being returned (both new and existing)
+    const googleEmails = new Set(allGoogleUsers.map(u => u.primaryEmail));
+    
+    // Get ALL database users who are not already deleted
     const dbResult = await pool.query('SELECT email, status FROM users WHERE status != $1', ['deleted']);
     const allDbUsers = dbResult.rows;
     
     console.log(`\n🔍 Deletion check:`);
-    console.log(`   Google users (existingUsers): ${existingUsers.length}`);
+    console.log(`   Google users returned: ${allGoogleUsers.length}`);
     console.log(`   DB users (non-deleted): ${allDbUsers.length}`);
     
-    const deletedUsers = allDbUsers.filter((u: any) => !dbEmails.has(u.email));
+    // Find users in DB who are NOT in the Google response
+    const deletedUsers = allDbUsers.filter((u: any) => !googleEmails.has(u.email));
     
     console.log(`   Users to mark as deleted: ${deletedUsers.length}`);
     if (deletedUsers.length > 0) {
