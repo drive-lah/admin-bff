@@ -562,13 +562,13 @@ export class UserRegistryService {
       // Mark users as deleted if they're in DB but not in Google
       try {
         const googleEmails = new Set(allGoogleUsers.map(u => u.primaryEmail));
-        const dbUsers = await db.all<{ id: number; email: string }>('SELECT id, email FROM users WHERE status != ?', ['deleted']);
+        const dbUsers = await db.all<{ id: number; email: string }>('SELECT id, email FROM users WHERE status != $1', ['deleted']);
         const usersToDelete = dbUsers.filter(u => !googleEmails.has(u.email));
 
         for (const user of usersToDelete) {
           try {
-            await db.run('UPDATE users SET status = ?, deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status != ?', 
-              ['deleted', user.id, 'deleted']);
+            await db.run('UPDATE users SET status = $1, deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND status != $1', 
+              ['deleted', user.id]);
             logger.info(`Marked user as deleted: ${user.email}`);
             deleted++;
           } catch (error) {
