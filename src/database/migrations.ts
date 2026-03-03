@@ -14,7 +14,7 @@ export class DatabaseMigrations {
           name VARCHAR(255) NOT NULL,
           role VARCHAR(50) NOT NULL,
           teams TEXT[] NOT NULL,
-          status VARCHAR(50) NOT NULL DEFAULT 'active',
+          status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),
           google_workspace_id VARCHAR(255) UNIQUE,
           google_org_unit VARCHAR(255),
           google_groups TEXT,
@@ -25,7 +25,8 @@ export class DatabaseMigrations {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           last_login_at TIMESTAMP,
-          last_google_sync_at TIMESTAMP
+          last_google_sync_at TIMESTAMP,
+          deleted_at TIMESTAMP
         )
       `);
 
@@ -66,6 +67,16 @@ export class DatabaseMigrations {
           -- Add region column with default value
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='region') THEN
             ALTER TABLE users ADD COLUMN region VARCHAR(50) DEFAULT 'global' CHECK (region IN ('singapore', 'australia', 'global'));
+          END IF;
+
+          -- Add deleted_at column for soft deletes
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='deleted_at') THEN
+            ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP;
+          END IF;
+
+          -- Add constraint to status column if it doesn't exist
+          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name='users' AND constraint_name='users_status_check') THEN
+            ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active', 'suspended', 'deleted'));
           END IF;
         END $$;
       `);

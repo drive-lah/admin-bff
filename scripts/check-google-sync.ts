@@ -44,11 +44,14 @@ async function main() {
     const allGoogleUsers = [...drivelahUsers, ...drivemateUsers];
     console.log(`📊 Total Google Workspace users: ${allGoogleUsers.length}\n`);
 
-    // Fetch users from database
+    // Fetch users from database (excluding already-deleted users)
     console.log('📥 Fetching users from database...');
-    const dbResult = await pool.query('SELECT email, google_workspace_id FROM users');
+    const dbResult = await pool.query('SELECT email, google_workspace_id, status FROM users WHERE status != $1', ['deleted']);
     const dbUsers = dbResult.rows;
-    console.log(`   Found ${dbUsers.length} users in database\n`);
+    const deletedResult = await pool.query('SELECT COUNT(*) as count FROM users WHERE status = $1', ['deleted']);
+    const deletedCount = parseInt(deletedResult.rows[0].count);
+    console.log(`   Found ${dbUsers.length} active/suspended users`);
+    console.log(`   Found ${deletedCount} already-deleted users\n`);
 
     // Compare
     const dbEmails = new Set(dbUsers.map((u: any) => u.email));
@@ -83,8 +86,10 @@ async function main() {
       missingInGoogle.forEach((user: any, index) => {
         console.log(`${index + 1}. ${user.email}`);
         console.log(`   Google ID in DB: ${user.google_workspace_id || 'None'}`);
+        console.log(`   Current status: ${user.status || 'unknown'}`);
         console.log();
       });
+      console.log('💡 TIP: Run sync-from-google.ts to mark these users as "deleted"\n');
     } else {
       console.log('✅ All database users exist in Google Workspace\n');
     }
@@ -93,10 +98,19 @@ async function main() {
     console.log('SUMMARY');
     console.log('=' .repeat(80));
     console.log(`Google Workspace users: ${allGoogleUsers.length}`);
-    console.log(`Database users: ${dbUsers.length}`);
+    console.log(`Database users (active/suspended): ${dbUsers.length}`);
+    console.log(`Database users (already deleted): ${deletedCount}`);
     console.log(`Missing in database: ${missingInDb.length}`);
-    console.log(`Missing in Google: ${missingInGoogle.length}`);
+    console.log(`Missing in Google (need deletion): ${missingInGoogle.length}`);
     console.log();
+    
+    if (missingInGoogle.length > 0) {
+      console.log('📋 NEXT STEPS:');
+      console.log('  1. Review the users marked "Missing in Google" above');
+      console.log('  2. Run: npm run sync:google');
+      console.log('  3. Verify deletion with: npm run sync:check');
+      console.log();
+    }
 
   } catch (error: any) {
     console.error('❌ Error:', error.message);

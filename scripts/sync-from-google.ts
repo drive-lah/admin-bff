@@ -161,15 +161,56 @@ async function main() {
       }
     }
 
+    // Process deleted users (MARK AS DELETED if in DB but not in Google)
+    const dbEmails = new Set(existingUsers.map(u => u.primaryEmail));
+    const dbResult = await pool.query('SELECT email, status FROM users WHERE status != $1', ['deleted']);
+    const allDbUsers = dbResult.rows;
+    
+    const deletedUsers = allDbUsers.filter((u: any) => !dbEmails.has(u.email));
+    
+    let deletedCount = 0;
+    for (const user of deletedUsers) {
+      try {
+        const email = user.email;
+        
+        // Mark as deleted with timestamp
+        await pool.query(`
+          UPDATE users
+          SET
+            status = $1,
+            deleted_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP,
+            last_google_sync_at = CURRENT_TIMESTAMP
+          WHERE email = $2 AND status != $1
+        `, ['deleted', email]);
+
+        console.log(`🗑️  Marked as deleted: ${email} (no longer in Google Workspace)\n`);
+        deletedCount++;
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+      } catch (error: any) {
+        console.error(`❌ Failed to mark ${user.email} as deleted:`, error.message);
+        failCount++;
+      }
+    }
+
     console.log('\n✨ Sync Complete!\n');
     console.log(`✅ Inserted new users: ${insertedCount}`);
     console.log(`🔄 Updated existing users: ${updatedCount}`);
+    console.log(`🗑️  Marked as deleted: ${deletedCount}`);
     console.log(`❌ Failed: ${failCount} users`);
     console.log();
 
     // Show updated stats
     const finalCount = await pool.query('SELECT COUNT(*) as count FROM users');
+    const activeCount = await pool.query('SELECT COUNT(*) as count FROM users WHERE status = $1', ['active']);
+    const suspendedCount = await pool.query('SELECT COUNT(*) as count FROM users WHERE status = $1', ['suspended']);
+    const deletedCountTotal = await pool.query('SELECT COUNT(*) as count FROM users WHERE status = $1', ['deleted']);
+    
     console.log(`📊 Total users in database: ${finalCount.rows[0].count}`);
+    console.log(`   Active: ${activeCount.rows[0].count}`);
+    console.log(`   Suspended: ${suspendedCount.rows[0].count}`);
+    console.log(`   Deleted: ${deletedCountTotal.rows[0].count}`);
 
   } catch (error: any) {
     console.error('❌ Error:', error.message);
