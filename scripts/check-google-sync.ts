@@ -1,6 +1,37 @@
 import { GoogleWorkspaceService } from '../src/services/google-workspace';
 import { Pool } from 'pg';
 
+/**
+ * Google Workspace Sync Status Checker
+ * 
+ * Validates synchronization status between Google Workspace and the database.
+ * Identifies mismatches and provides guidance for fixing them.
+ * 
+ * Checks:
+ * - Users in Google Workspace but NOT in database (new users that need insertion)
+ * - Users in database but NOT in Google Workspace (deleted users that need soft deletion)
+ * - Already-deleted users in database (counts separately)
+ * 
+ * Features:
+ * - Fetches users from all configured Google Workspace domains
+ * - Excludes already-deleted users from active comparison
+ * - Reports separate counts: active/suspended vs. deleted
+ * - Provides actionable guidance: "Run sync-from-google.ts to mark these users as deleted"
+ * - Shows detailed information for mismatched users (email, Google ID, status)
+ * 
+ * Usage:
+ *   npm run sync:check
+ * 
+ * Output Format:
+ *   - Sync status report (users needing action)
+ *   - Summary with counts (Google users, DB users, mismatches)
+ *   - Next steps guidance
+ * 
+ * Exit Codes:
+ *   0 = Success (may have mismatches to fix)
+ *   1 = Error (Google Workspace service init failed, database error, etc.)
+ */
+
 // Database connection
 const pool = new Pool({
   host: 'collections-db.compunokr5xr.ap-southeast-2.rds.amazonaws.com',

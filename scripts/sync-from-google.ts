@@ -1,6 +1,32 @@
 import { GoogleWorkspaceService } from '../src/services/google-workspace';
 import { Pool } from 'pg';
 
+/**
+ * Google Workspace User Sync Script
+ * 
+ * Synchronizes users from Google Workspace to the database with soft-delete support.
+ * 
+ * Features:
+ * - Fetches users from all configured Google Workspace domains (drivelah.sg, drivemate.au, drivemate.nz)
+ * - Inserts new users not yet in database
+ * - Updates existing users with latest Google data (name, status, org unit, etc.)
+ * - Marks users as deleted if they exist in database but are missing from Google Workspace
+ * - Preserves all user data for audit trail (soft delete, not hard delete)
+ * - Reports summary: inserted, updated, deleted, failed counts
+ * 
+ * Usage:
+ *   npm run sync:google
+ * 
+ * Outputs:
+ *   - Console logs with progress updates
+ *   - Final summary with counts by status (active, suspended, deleted)
+ * 
+ * Error Handling:
+ *   - Catches and logs individual user insertion/update/deletion failures
+ *   - Does not stop on individual failures, continues processing remaining users
+ *   - Exits with code 1 if Google Workspace service fails to initialize
+ */
+
 // Database connection
 const pool = new Pool({
   host: 'collections-db.compunokr5xr.ap-southeast-2.rds.amazonaws.com',

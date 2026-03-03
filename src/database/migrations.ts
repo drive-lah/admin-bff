@@ -1,7 +1,41 @@
 import { db } from './database';
 import { logger } from '../utils/logger';
 
+/**
+ * Database Migrations for Admin BFF
+ * 
+ * Manages database schema creation and updates using idempotent SQL.
+ * All migrations are safe to run multiple times (CREATE IF NOT EXISTS, etc.)
+ * 
+ * Tables Created/Managed:
+ * - users: User registry with soft-delete support
+ *   - Status options: 'active', 'suspended', 'deleted' (CHECK constraint)
+ *   - deleted_at: TIMESTAMP field for soft-delete audit trail
+ * - user_permissions: RBAC permissions per user and module
+ * - admin_user_logs: Audit trail of all admin actions
+ * 
+ * Features:
+ * - Idempotent: Safe to run on each app startup
+ * - Handles schema evolution: adds columns only if they don't exist
+ * - Constraint management: adds constraints if missing
+ * - Trigger management: creates auto-update triggers for updated_at
+ * - Foreign key relationships with CASCADE/RESTRICT policies
+ * 
+ * Soft Delete Support:
+ * - Users marked as 'deleted' are never hard-deleted from the database
+ * - deleted_at timestamp tracks when the soft deletion occurred
+ * - All user data is preserved for audit trail and compliance
+ */
 export class DatabaseMigrations {
+  /**
+   * Runs all database migrations
+   * 
+   * Creates tables, adds columns, creates indexes, and sets up triggers.
+   * All operations are idempotent and safe to run multiple times.
+   * 
+   * @throws Error if migrations fail (logs error and re-throws)
+   * @returns Promise that resolves when all migrations complete
+   */
   public static async runMigrations(): Promise<void> {
     try {
       logger.info('Running database migrations...');
@@ -189,6 +223,27 @@ export class DatabaseMigrations {
     }
   }
 
+  /**
+   * Inserts default/seed data into the database
+   * 
+   * Only runs if the database is empty (no existing users).
+   * Creates an initial admin user and assigns default permissions.
+   * 
+   * Default Admin User:
+   * - Email: admin@drivelah.sg
+   * - Name: System Admin
+   * - Role: admin
+   * - Teams: ['tech']
+   * - Status: active
+   * 
+   * Permissions Granted:
+   * - All modules: users, finance, ai-agents, tech, listings, transactions, 
+   *   resolution, claims, host-management, verification
+   * - Access level: admin (full control)
+   * 
+   * @throws Error if insertion fails (logs error and re-throws)
+   * @returns Promise that resolves when default data is inserted
+   */
   public static async insertDefaultData(): Promise<void> {
     try {
       // Check if we already have users
