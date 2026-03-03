@@ -530,16 +530,20 @@ export class UserRegistryService {
     }
   }
 
-  public async syncAllUsersFromGoogle(syncBy: number): Promise<{ synced: number; errors: number }> {
+  public async syncAllUsersFromGoogle(syncBy: number): Promise<{ synced: number; errors: number; deleted: number }> {
     let synced = 0;
     let errors = 0;
+    let deleted = 0;
 
     try {
       const domains = ['drivelah.sg', 'drivemate.au'];
+      const allGoogleUsers: any[] = [];
 
+      // Fetch all Google users from all domains
       for (const domain of domains) {
         try {
           const googleUsers = await this.googleWorkspace.fetchAllUsers(domain);
+          allGoogleUsers.push(...googleUsers);
 
           for (const googleUser of googleUsers) {
             try {
@@ -555,13 +559,34 @@ export class UserRegistryService {
         }
       }
 
-      logger.info(`Google Workspace sync completed: ${synced} synced, ${errors} errors`);
+      // Mark users as deleted if they're in DB but not in Google
+      try {
+        const googleEmails = new Set(allGoogleUsers.map(u => u.primaryEmail));
+        const dbUsers = await db.all<{ id: number; email: string }>('SELECT id, email FROM users WHERE status != ?', ['deleted']);
+        const usersToDelete = dbUsers.filter(u => !googleEmails.has(u.email));
+
+        for (const user of usersToDelete) {
+          try {
+            await db.run('UPDATE users SET status = ?, deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status != ?', 
+              ['deleted', user.id, 'deleted']);
+            logger.info(`Marked user as deleted: ${user.email}`);
+            deleted++;
+          } catch (error) {
+            logger.error(`Error marking user ${user.email} as deleted:`, error);
+            errors++;
+          }
+        }
+      } catch (error) {
+        logger.error('Error during user deletion check:', error);
+      }
+
+      logger.info(`Google Workspace sync completed: ${synced} synced, ${deleted} deleted, ${errors} errors`);
     } catch (error) {
       logger.error('Error during Google Workspace sync:', error);
       throw error;
     }
 
-    return { synced, errors };
+    return { synced, errors, deleted };
   }
 
   // Analytics and search
