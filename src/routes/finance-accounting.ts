@@ -4,6 +4,10 @@ import { logger } from '../utils/logger';
 import { APIResponse } from '../types/api';
 import axios from 'axios';
 import { config } from '../config/config';
+import multer from 'multer';
+import FormData from 'form-data';
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 export const financeAccountingRouter = Router();
 
@@ -357,19 +361,36 @@ financeAccountingRouter.get('/accounting/bank-accounts/:id', asyncHandler(async 
 // ---------------------------------------------------------------------------
 
 // POST /accounting/transactions/import (multipart/form-data CSV upload)
-financeAccountingRouter.post('/accounting/transactions/import', asyncHandler(async (req: any, res: any) => {
+// multer parses the incoming file into memory, then we reconstruct a new
+// multipart request to forward to the finance API.
+financeAccountingRouter.post('/accounting/transactions/import', upload.single('file'), asyncHandler(async (req: any, res: any) => {
   logger.info('Importing transactions via finance API');
   try {
+    if (!req.file) {
+      return res.status(400).json({ error: { message: 'No file provided', statusCode: 400 } });
+    }
+    if (!req.body.bank_account_id) {
+      return res.status(400).json({ error: { message: 'bank_account_id is required', statusCode: 400 } });
+    }
+
+    const formData = new FormData();
+    formData.append('file', req.file.buffer, {
+      filename: req.file.originalname || 'transactions.csv',
+      contentType: req.file.mimetype || 'text/csv',
+    });
+    formData.append('bank_account_id', req.body.bank_account_id);
+    if (req.body.import_batch_id) {
+      formData.append('import_batch_id', req.body.import_batch_id);
+    }
+
     const url = `${FINANCE_API_BASE()}/transactions/import`;
-    const response = await axios.post(url, req.body, {
+    const response = await axios.post(url, formData, {
       timeout: 60000,
-      headers: {
-        ...req.headers,
-        host: undefined,
-      },
+      headers: formData.getHeaders(),
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
     });
+
     const apiResponse: APIResponse = {
       data: response.data,
       message: 'Transactions imported successfully',
@@ -636,6 +657,187 @@ financeAccountingRouter.get('/accounting/reports/trial-balance', asyncHandler(as
     res.status(error.response?.status || 500).json({
       error: {
         message: 'Failed to retrieve trial balance report',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// ---------------------------------------------------------------------------
+// Categorization Rules
+// ---------------------------------------------------------------------------
+
+// GET /accounting/categorization/rules
+financeAccountingRouter.get('/accounting/categorization/rules', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching categorization rules from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/categorization/rules`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.status && { status: req.query.status }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Categorization rules retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch categorization rules', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve categorization rules',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/categorization/rules
+financeAccountingRouter.post('/accounting/categorization/rules', asyncHandler(async (req: any, res: any) => {
+  logger.info('Creating categorization rule in finance API');
+  try {
+    const url = `${FINANCE_API_BASE()}/categorization/rules`;
+    const response = await axios.post(url, req.body, {
+      timeout: 30000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Categorization rule created successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.status(201).json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to create categorization rule', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to create categorization rule',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /accounting/categorization/rules/:id
+financeAccountingRouter.get('/accounting/categorization/rules/:id', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching categorization rule by id', { id: req.params.id });
+  try {
+    const url = `${FINANCE_API_BASE()}/categorization/rules/${req.params.id}`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Categorization rule retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch categorization rule', { error: error.message, id: req.params.id });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve categorization rule',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// PUT /accounting/categorization/rules/:id
+financeAccountingRouter.put('/accounting/categorization/rules/:id', asyncHandler(async (req: any, res: any) => {
+  logger.info('Updating categorization rule', { id: req.params.id });
+  try {
+    const url = `${FINANCE_API_BASE()}/categorization/rules/${req.params.id}`;
+    const response = await axios.put(url, req.body, {
+      timeout: 30000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Categorization rule updated successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to update categorization rule', { error: error.message, id: req.params.id });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to update categorization rule',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// DELETE /accounting/categorization/rules/:id
+financeAccountingRouter.delete('/accounting/categorization/rules/:id', asyncHandler(async (req: any, res: any) => {
+  logger.info('Deleting categorization rule', { id: req.params.id });
+  try {
+    const url = `${FINANCE_API_BASE()}/categorization/rules/${req.params.id}`;
+    const response = await axios.delete(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Categorization rule deleted successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to delete categorization rule', { error: error.message, id: req.params.id });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to delete categorization rule',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/categorization/run
+financeAccountingRouter.post('/accounting/categorization/run', asyncHandler(async (req: any, res: any) => {
+  logger.info('Running categorization engine', { body: req.body });
+  try {
+    const url = `${FINANCE_API_BASE()}/categorization/run`;
+    const response = await axios.post(url, req.body, {
+      timeout: 60000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Categorization engine run completed',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to run categorization engine', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to run categorization engine',
         statusCode: error.response?.status || 500,
         timestamp: new Date().toISOString(),
         path: req.path,
