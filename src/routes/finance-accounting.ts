@@ -6,6 +6,7 @@ import axios from 'axios';
 import { config } from '../config/config';
 import multer from 'multer';
 import FormData from 'form-data';
+import { UserRegistryService } from '../services/user-registry';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -355,6 +356,79 @@ financeAccountingRouter.get('/accounting/bank-accounts/:id', asyncHandler(async 
     });
   }
 }));
+
+// ---------------------------------------------------------------------------
+// Wise Integration
+// ---------------------------------------------------------------------------
+
+// GET /accounting/bank-accounts/wise/profiles
+financeAccountingRouter.get('/accounting/bank-accounts/wise/profiles', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/bank-accounts/wise/profiles`
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders })
+    res.json({ data: response.data, message: 'Wise profiles retrieved', timestamp: new Date().toISOString() })
+  } catch (error: any) {
+    logger.error('Failed to fetch Wise profiles', { error: error.message })
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to fetch Wise profiles', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } })
+  }
+}))
+
+// POST /accounting/bank-accounts/wise/connect
+financeAccountingRouter.post('/accounting/bank-accounts/wise/connect', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/bank-accounts/wise/connect`
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders })
+    res.json({ data: response.data, message: 'Wise connect completed', timestamp: new Date().toISOString() })
+  } catch (error: any) {
+    logger.error('Failed to connect Wise', { error: error.message })
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to connect Wise', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } })
+  }
+}))
+
+// POST /accounting/bank-accounts/:id/sync
+financeAccountingRouter.post('/accounting/bank-accounts/:id/sync', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/bank-accounts/${req.params.id}/sync`
+    const response = await axios.post(url, req.body || {}, { timeout: 60000, headers: defaultHeaders })
+    res.json({ data: response.data, message: 'Sync completed', timestamp: new Date().toISOString() })
+  } catch (error: any) {
+    logger.error('Failed to sync bank account', { error: error.message, id: req.params.id })
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to sync bank account', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } })
+  }
+}))
+
+// ---------------------------------------------------------------------------
+// DBS PDF Import
+// ---------------------------------------------------------------------------
+
+// POST /accounting/bank-accounts/dbs/import (multipart/form-data PDF upload)
+financeAccountingRouter.post('/accounting/bank-accounts/dbs/import', upload.single('file'), asyncHandler(async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: { message: 'No file provided', statusCode: 400 } })
+    }
+    if (!req.body.entity_id) {
+      return res.status(400).json({ error: { message: 'entity_id is required', statusCode: 400 } })
+    }
+
+    const formData = new FormData()
+    formData.append('file', req.file.buffer, {
+      filename: req.file.originalname || 'statement.pdf',
+      contentType: 'application/pdf',
+    })
+    formData.append('entity_id', req.body.entity_id)
+
+    const url = `${FINANCE_API_BASE()}/bank-accounts/dbs/import`
+    const response = await axios.post(url, formData, {
+      timeout: 60000,
+      headers: { ...formData.getHeaders(), 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+    })
+    res.json({ data: response.data, message: 'DBS import completed', timestamp: new Date().toISOString() })
+  } catch (error: any) {
+    logger.error('Failed to import DBS statement', { error: error.message })
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to import DBS statement', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } })
+  }
+}))
 
 // ---------------------------------------------------------------------------
 // Transactions
@@ -973,6 +1047,21 @@ financeAccountingRouter.post('/accounting/categorization/run', asyncHandler(asyn
   }
 }));
 
+// POST /accounting/categorization/manual
+financeAccountingRouter.post('/accounting/categorization/manual', asyncHandler(async (req: any, res: any) => {
+  logger.info('Manual categorization', { transaction_id: req.body?.transaction_id });
+  try {
+    const url = `${FINANCE_API_BASE()}/categorization/manual`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Transaction categorized', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    logger.error('Manual categorization failed', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: { message: error.response?.data?.error || 'Manual categorization failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method },
+    });
+  }
+}));
+
 // ---------------------------------------------------------------------------
 // Counterparties
 // ---------------------------------------------------------------------------
@@ -1029,5 +1118,45 @@ financeAccountingRouter.delete('/accounting/counterparties/:id', asyncHandler(as
     res.json({ data: response.data, message: 'Counterparty deleted', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: { message: 'Failed to delete counterparty', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/counterparties/sync/employees
+// Fetches all internal users from user registry and upserts them into finance counterparties
+financeAccountingRouter.post('/accounting/counterparties/sync/employees', asyncHandler(async (req: any, res: any) => {
+  logger.info('Starting employee sync into finance counterparties');
+  try {
+    const userRegistry = new UserRegistryService();
+    const users = await userRegistry.getAllUsers();
+
+    const employees = users.map((u) => ({
+      external_system: 'user_registry',
+      external_id: String(u.id),
+      name: u.name,
+      email: u.email,
+      phone: u.phone_number ?? null,
+      status: u.status === 'active' ? 'active' : 'inactive',
+    }));
+
+    const url = `${FINANCE_API_BASE()}/counterparties/sync/employees`;
+    const response = await axios.post(url, { employees }, { timeout: 60000, headers: defaultHeaders });
+
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: `Employee sync complete: ${response.data.created} created, ${response.data.updated} updated`,
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Employee sync failed', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Employee sync failed',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
   }
 }));
