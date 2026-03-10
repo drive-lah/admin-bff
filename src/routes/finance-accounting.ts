@@ -360,6 +360,132 @@ financeAccountingRouter.get('/accounting/bank-accounts/:id', asyncHandler(async 
 // Transactions
 // ---------------------------------------------------------------------------
 
+// GET /accounting/transactions
+financeAccountingRouter.get('/accounting/transactions', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching transactions from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/transactions`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.bank_account_id && { bank_account_id: req.query.bank_account_id }),
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.status && { status: req.query.status }),
+        ...(req.query.date_from && { date_from: req.query.date_from }),
+        ...(req.query.date_to && { date_to: req.query.date_to }),
+        ...(req.query.search && { search: req.query.search }),
+        ...(req.query.limit && { limit: req.query.limit }),
+        ...(req.query.offset && { offset: req.query.offset }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Transactions retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch transactions', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve transactions',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /accounting/transactions/:id
+financeAccountingRouter.get('/accounting/transactions/:id', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching transaction by id', { id: req.params.id });
+  try {
+    const url = `${FINANCE_API_BASE()}/transactions/${req.params.id}`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Transaction retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch transaction', { error: error.message, id: req.params.id });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve transaction',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/transactions/:id/approve
+financeAccountingRouter.post('/accounting/transactions/:id/approve', asyncHandler(async (req: any, res: any) => {
+  logger.info('Approving transaction', { id: req.params.id });
+  try {
+    const url = `${FINANCE_API_BASE()}/transactions/${req.params.id}/approve`;
+    const response = await axios.post(url, {}, {
+      timeout: 30000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Transaction approved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to approve transaction', { error: error.message, id: req.params.id });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to approve transaction',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/transactions/:id/reject
+financeAccountingRouter.post('/accounting/transactions/:id/reject', asyncHandler(async (req: any, res: any) => {
+  logger.info('Rejecting transaction', { id: req.params.id });
+  try {
+    const url = `${FINANCE_API_BASE()}/transactions/${req.params.id}/reject`;
+    const response = await axios.post(url, {}, {
+      timeout: 30000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Transaction rejected successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to reject transaction', { error: error.message, id: req.params.id });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to reject transaction',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
 // POST /accounting/transactions/import (multipart/form-data CSV upload)
 // multer parses the incoming file into memory, then we reconstruct a new
 // multipart request to forward to the finance API.
