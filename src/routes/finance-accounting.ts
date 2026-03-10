@@ -972,3 +972,62 @@ financeAccountingRouter.post('/accounting/categorization/run', asyncHandler(asyn
     });
   }
 }));
+
+// ---------------------------------------------------------------------------
+// Counterparties
+// ---------------------------------------------------------------------------
+
+// GET /accounting/counterparties
+financeAccountingRouter.get('/accounting/counterparties', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/counterparties`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders, params: req.query });
+    res.json({ data: response.data, message: 'Counterparties retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve counterparties', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/counterparties
+financeAccountingRouter.post('/accounting/counterparties', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/counterparties`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.status(201).json({ data: response.data, message: 'Counterparty created', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to create counterparty', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/counterparties/:id
+financeAccountingRouter.get('/accounting/counterparties/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/counterparties/${req.params.id}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Counterparty retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve counterparty', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// PUT /accounting/counterparties/:id
+financeAccountingRouter.put('/accounting/counterparties/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/counterparties/${req.params.id}`;
+    const response = await axios.put(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Counterparty updated', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to update counterparty', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// DELETE /accounting/counterparties/:id
+financeAccountingRouter.delete('/accounting/counterparties/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/counterparties/${req.params.id}`;
+    const response = await axios.delete(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Counterparty deleted', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to delete counterparty', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
