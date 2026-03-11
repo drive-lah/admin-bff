@@ -1262,6 +1262,19 @@ financeAccountingRouter.post('/accounting/invoices/extract', upload.single('file
   }
 }));
 
+// POST /accounting/invoices/:id/submit (AI contract review gate + approval rules)
+financeAccountingRouter.post('/accounting/invoices/:id/submit', asyncHandler(async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const url = `${FINANCE_API_BASE()}/invoices/${id}/submit`;
+    const response = await axios.post(url, req.body || {}, { timeout: 30000, headers: { 'Content-Type': 'application/json', 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' } });
+    res.json({ data: response.data, message: 'Invoice submitted', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    const msg = error.response?.data?.error || 'Failed to submit invoice';
+    res.status(error.response?.status || 500).json({ error: { message: msg, statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // ---------------------------------------------------------------------------
 // Contracts
 // ---------------------------------------------------------------------------
