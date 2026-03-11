@@ -1160,3 +1160,215 @@ financeAccountingRouter.post('/accounting/counterparties/sync/employees', asyncH
     });
   }
 }));
+
+// ---------------------------------------------------------------------------
+// Invoices
+// ---------------------------------------------------------------------------
+
+// GET /accounting/invoices
+financeAccountingRouter.get('/accounting/invoices', asyncHandler(async (req: any, res: any) => {
+  try {
+    const params = new URLSearchParams();
+    if (req.query.entity_id) params.append('entity_id', req.query.entity_id as string);
+    if (req.query.status) params.append('status', req.query.status as string);
+    if (req.query.counterparty_id) params.append('counterparty_id', req.query.counterparty_id as string);
+    const url = `${FINANCE_API_BASE()}/invoices${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Invoices retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve invoices', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/invoices
+financeAccountingRouter.post('/accounting/invoices', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.status(201).json({ data: response.data, message: 'Invoice created', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to create invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/invoices/:id
+financeAccountingRouter.get('/accounting/invoices/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${req.params.id}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Invoice retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// PUT /accounting/invoices/:id
+financeAccountingRouter.put('/accounting/invoices/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${req.params.id}`;
+    const response = await axios.put(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Invoice updated', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to update invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/invoices/:id/approve
+financeAccountingRouter.post('/accounting/invoices/:id/approve', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${req.params.id}/approve`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Invoice approved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to approve invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/invoices/:id/reject
+financeAccountingRouter.post('/accounting/invoices/:id/reject', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${req.params.id}/reject`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Invoice rejected', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to reject invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/invoices/:id/void
+financeAccountingRouter.post('/accounting/invoices/:id/void', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${req.params.id}/void`;
+    const response = await axios.post(url, {}, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Invoice voided', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to void invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/invoices/extract (PDF upload for AI extraction)
+financeAccountingRouter.post('/accounting/invoices/extract', upload.single('file'), asyncHandler(async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: { message: 'No file provided', statusCode: 400, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+    }
+    const formData = new FormData();
+    formData.append('file', req.file.buffer, { filename: req.file.originalname, contentType: req.file.mimetype });
+    const url = `${FINANCE_API_BASE()}/invoices/extract`;
+    const response = await axios.post(url, formData, { timeout: 60000, headers: { ...formData.getHeaders(), 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' } });
+    res.json({ data: response.data, message: 'Invoice data extracted', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to extract invoice data', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// ---------------------------------------------------------------------------
+// Contracts
+// ---------------------------------------------------------------------------
+
+// GET /accounting/contracts
+financeAccountingRouter.get('/accounting/contracts', asyncHandler(async (req: any, res: any) => {
+  try {
+    const params = new URLSearchParams();
+    if (req.query.entity_id) params.append('entity_id', req.query.entity_id as string);
+    if (req.query.counterparty_id) params.append('counterparty_id', req.query.counterparty_id as string);
+    if (req.query.status) params.append('status', req.query.status as string);
+    const url = `${FINANCE_API_BASE()}/contracts${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Contracts retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve contracts', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/contracts
+financeAccountingRouter.post('/accounting/contracts', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/contracts`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.status(201).json({ data: response.data, message: 'Contract created', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to create contract', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/contracts/:id
+financeAccountingRouter.get('/accounting/contracts/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/contracts/${req.params.id}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Contract retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve contract', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// PUT /accounting/contracts/:id
+financeAccountingRouter.put('/accounting/contracts/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/contracts/${req.params.id}`;
+    const response = await axios.put(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Contract updated', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to update contract', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// ---------------------------------------------------------------------------
+// Approval Rules
+// ---------------------------------------------------------------------------
+
+// GET /accounting/approval-rules
+financeAccountingRouter.get('/accounting/approval-rules', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/approval-rules`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Approval rules retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve approval rules', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/approval-rules
+financeAccountingRouter.post('/accounting/approval-rules', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/approval-rules`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.status(201).json({ data: response.data, message: 'Approval rule created', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to create approval rule', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/approval-rules/:id
+financeAccountingRouter.get('/accounting/approval-rules/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/approval-rules/${req.params.id}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Approval rule retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve approval rule', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// PUT /accounting/approval-rules/:id
+financeAccountingRouter.put('/accounting/approval-rules/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/approval-rules/${req.params.id}`;
+    const response = await axios.put(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Approval rule updated', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to update approval rule', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// DELETE /accounting/approval-rules/:id
+financeAccountingRouter.delete('/accounting/approval-rules/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/approval-rules/${req.params.id}`;
+    const response = await axios.delete(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Approval rule deleted', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to delete approval rule', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
