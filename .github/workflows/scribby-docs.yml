@@ -1,0 +1,68 @@
+name: Scribby - Documentation Generation
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+env:
+  OPENCLAW_URL: "https://seymour-detailed-unvitally.ngrok-free.dev"
+  OPENCLAW_HOOKS_TOKEN: "abcd1234"
+
+jobs:
+  scribby-documentation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract PR details
+        id: pr-info
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          BRANCH=${{ github.event.pull_request.head.ref }}
+          REPO=${{ github.event.repository.name }}
+          OWNER=${{ github.repository_owner }}
+          
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "repo=$REPO" >> $GITHUB_OUTPUT
+          echo "owner=$OWNER" >> $GITHUB_OUTPUT
+          
+          BASE=$(git merge-base origin/main HEAD)
+          FILE_COUNT=$(git diff --name-only $BASE...HEAD | wc -l)
+          echo "file_count=$FILE_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Trigger Scribby via OpenClaw webhook
+        id: spawn-scribby
+        run: |
+          # Get code diff
+          BASE=$(git merge-base origin/main HEAD)
+          DIFF=$(git diff $BASE...HEAD)
+          
+          # Create JSON payload file with GitHub context
+          cat > /tmp/payload.json << 'PAYLOAD'
+          {
+            "message": "Analyze GitHub PR #${{ steps.pr-info.outputs.pr_number }} in ${{ steps.pr-info.outputs.repo }} (branch: ${{ steps.pr-info.outputs.branch }}).\n\nFiles changed: ${{ steps.pr-info.outputs.file_count }}\n\nGITHUB CONTEXT:\n- PR Number: ${{ steps.pr-info.outputs.pr_number }}\n- Repository: ${{ steps.pr-info.outputs.owner }}/${{ steps.pr-info.outputs.repo }}\n- Branch: ${{ steps.pr-info.outputs.branch }}\n- GitHub Token: ${{ secrets.GITHUB_TOKEN }}\n- GitHub API URL: https://api.github.com/repos/${{ steps.pr-info.outputs.owner }}/${{ steps.pr-info.outputs.repo }}/issues/${{ steps.pr-info.outputs.pr_number }}/comments\n\nYOUR TASK:\n1. Analyze the code changes using your AGENTS.md knowledge\n2. Map to documentation requirements\n3. Generate documentation update proposals\n4. POST your analysis as a GitHub comment using the GitHub API\n5. If documentation updates are needed, generate the specific changes\n\nUse your AGENTS.md knowledge of Grid project structure. Map code changes to documentation requirements and generate update proposals.",
+            "name": "GitHub PR #${{ steps.pr-info.outputs.pr_number }}",
+            "agentId": "scribby",
+            "wakeMode": "now",
+            "deliver": false
+          }
+          PAYLOAD
+          
+          echo "Triggering Scribby..."
+          
+          # Call webhook
+          curl -X POST "$OPENCLAW_URL/hooks/agent" \
+            -H "Authorization: Bearer $OPENCLAW_HOOKS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json \
+            -v
