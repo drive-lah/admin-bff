@@ -13,6 +13,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 export const financeAccountingRouter = Router();
 
 const FINANCE_API_BASE = () => `${config.financeApiUrl}/api/finance`;
+const HR_API_BASE = () => `${config.financeApiUrl}/api/hr`;
+const JOBS_API_BASE = () => `${config.financeApiUrl}/api/jobs`;
 
 const defaultHeaders = {
   'Content-Type': 'application/json',
@@ -1383,5 +1385,93 @@ financeAccountingRouter.delete('/accounting/approval-rules/:id', asyncHandler(as
     res.json({ data: response.data, message: 'Approval rule deleted', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: { message: 'Failed to delete approval rule', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// ---------------------------------------------------------------------------
+// HR — Onboarding / Offboarding / Employees
+// ---------------------------------------------------------------------------
+
+// GET /hr/employees — list HR employees
+financeAccountingRouter.get('/hr/employees', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${HR_API_BASE()}/employees`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders, params: req.query });
+    res.json({ data: response.data, message: 'HR employees retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve HR employees', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /hr/employees/:id — get single HR employee
+financeAccountingRouter.get('/hr/employees/:id', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${HR_API_BASE()}/employees/${req.params.id}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'HR employee retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve HR employee', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /hr/onboard/bulk — bulk onboard employees
+financeAccountingRouter.post('/hr/onboard/bulk', asyncHandler(async (req: any, res: any) => {
+  logger.info('Bulk onboarding employees via HR API');
+  try {
+    const url = `${HR_API_BASE()}/onboard/bulk`;
+    const response = await axios.post(url, req.body, { timeout: 60000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Bulk onboarding complete', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    logger.error('Bulk onboarding failed', { error: error.message });
+    const errData = error.response?.data;
+    res.status(error.response?.status || 500).json({
+      data: errData || null,
+      error: { message: errData?.errors?.[0]?.message || 'Bulk onboarding failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method },
+    });
+  }
+}));
+
+// POST /hr/onboard/:userId — individual onboard
+financeAccountingRouter.post('/hr/onboard/:userId', asyncHandler(async (req: any, res: any) => {
+  logger.info(`Individual onboarding user ${req.params.userId} via HR API`);
+  try {
+    const url = `${HR_API_BASE()}/onboard/${req.params.userId}`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Employee onboarded', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    logger.error(`Individual onboarding failed for user ${req.params.userId}`, { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: { message: error.response?.data?.error || 'Onboarding failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method },
+    });
+  }
+}));
+
+// POST /hr/offboard/:userId — offboard employee
+financeAccountingRouter.post('/hr/offboard/:userId', asyncHandler(async (req: any, res: any) => {
+  logger.info(`Offboarding user ${req.params.userId} via HR API`);
+  try {
+    const url = `${HR_API_BASE()}/offboard/${req.params.userId}`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Employee offboarded', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    logger.error(`Offboarding failed for user ${req.params.userId}`, { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: { message: error.response?.data?.error || 'Offboarding failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method },
+    });
+  }
+}));
+
+// POST /hr/jobs/sync-employees — trigger employee sync job
+financeAccountingRouter.post('/hr/jobs/sync-employees', asyncHandler(async (req: any, res: any) => {
+  logger.info('Triggering employee sync job via HR API');
+  try {
+    const url = `${JOBS_API_BASE()}/sync-employees`;
+    const response = await axios.post(url, {}, { timeout: 60000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Employee sync complete', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    logger.error('Employee sync job failed', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: { message: 'Employee sync failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method },
+    });
   }
 }));
