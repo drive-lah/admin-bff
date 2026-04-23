@@ -40,6 +40,19 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
       throw createError('Token is required', 401);
     }
 
+    // Demo mode bypass: accept hardcoded demo-token without JWT verification
+    if (process.env.DEMO_MODE === 'true' && token === 'demo-token') {
+      req.user = {
+        id: 'demo',
+        email: 'demo@drivelah.sg',
+        name: 'Demo User',
+        picture: '',
+        domain: 'drivelah.sg',
+        permissions: { modules: ['finance', 'ai-agents'], role: 'viewer' }
+      };
+      return next();
+    }
+
     // Verify JWT token
     const decoded = jwt.verify(token, config.jwtSecret) as any;
 
