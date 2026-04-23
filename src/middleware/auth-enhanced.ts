@@ -94,6 +94,17 @@ export const requireModuleAccess = (
         return;
       }
 
+      // Demo mode bypass: demo user has access to finance and ai-agents
+      if (process.env.DEMO_MODE === 'true' && req.user.id === 'demo') {
+        const demoModules = ['finance', 'ai-agents'];
+        if (demoModules.includes(module)) {
+          next();
+          return;
+        }
+        res.status(403).json({ error: { message: 'Module access denied in demo mode', statusCode: 403 } });
+        return;
+      }
+
       // Super admin (GOOGLE_ADMIN_EMAIL) has access to all modules
       const googleAdminEmail = process.env.GOOGLE_ADMIN_EMAIL;
       if (googleAdminEmail && req.user.email === googleAdminEmail) {
