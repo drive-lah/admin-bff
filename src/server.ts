@@ -28,7 +28,19 @@ const app = express();
 
 // CORS configuration - MUST be before rate limiting so preflight OPTIONS get CORS headers
 app.use(cors({
-  origin: config.allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. server-to-server, curl)
+    if (!origin) return callback(null, true);
+    const allowed = config.allowedOrigins.some(o => {
+      if (o.includes('*')) {
+        const pattern = new RegExp('^' + o.replace(/\./g, '\\.').replace(/\*/g, '[^.]+') + '$');
+        return pattern.test(origin);
+      }
+      return o === origin;
+    });
+    if (allowed) callback(null, true);
+    else callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
