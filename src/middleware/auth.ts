@@ -26,6 +26,19 @@ declare global {
 
 export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   try {
+    // Dev-only short-circuit: hard-gated against production in config.ts.
+    if (config.devAuthBypass) {
+      req.user = {
+        id: 'dev',
+        email: 'dev@localhost',
+        name: 'Dev User',
+        picture: '',
+        domain: 'localhost',
+        permissions: { modules: [], role: 'admin' },
+      };
+      return next();
+    }
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth';
+import { config } from '../config/config';
 import { User } from '../types/user';
 import { AuthenticatedUser } from './auth';
 import { logger } from '../utils/logger';
@@ -26,6 +27,18 @@ function userToAuthenticatedUser(user: User): AuthenticatedUser {
  */
 export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (config.devAuthBypass) {
+      req.user = {
+        id: 'dev',
+        email: 'dev@localhost',
+        name: 'Dev User',
+        picture: '',
+        domain: 'localhost',
+        permissions: { modules: [], role: 'admin' },
+      };
+      return next();
+    }
+
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -81,6 +94,10 @@ export const requireModuleAccess = (
 ) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      if (config.devAuthBypass) {
+        next();
+        return;
+      }
       if (!req.user) {
         res.status(401).json({
           error: {
