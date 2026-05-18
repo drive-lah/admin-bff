@@ -166,8 +166,6 @@ async function startServer() {
         environment: config.nodeEnv,
         aiAgentsApiUrl: config.aiAgentsApiUrl,
         sgCollectionsApiUrl: config.sgCollectionsApiUrl,
-        demoMode: config.demoMode,
-        devAuthBypass: config.devAuthBypass,
         database: 'SQLite (User Registry)',
       });
     });

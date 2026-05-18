@@ -2,18 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import { Agent, AgentUpdateRequest, AgentActionRequest } from '../types/api';
-import {
-  AGENT_MARKET,
-  RENAME,
-  SG_COLLECTIONS_AGENT_UUID,
-  type Market,
-} from './agent-uuids';
-import {
-  demoActions,
-  demoAgents,
-  demoAnalytics,
-  demoLogs,
-} from './demo-fixtures';
+import { AGENT_MARKET, RENAME, type Market } from './agent-uuids';
 
 export class AIAgentsClient {
   private auClient: AxiosInstance;
@@ -51,10 +40,6 @@ export class AIAgentsClient {
         'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
       },
     });
-
-    if (config.demoMode) {
-      logger.warn('BFF_DEMO_MODE=true — AI Agents endpoints return canned fixtures.');
-    }
 
     // Request interceptor (logging only — attached to AU client)
     this.auClient.interceptors.request.use(
@@ -124,9 +109,6 @@ export class AIAgentsClient {
   }
 
   async getAgents(): Promise<Agent[]> {
-    if (config.demoMode) {
-      return demoAgents().map((a) => this.relabel(a as any)) as any;
-    }
     const results = await Promise.allSettled([
       this.getWithRetry<Agent[]>(this.auClient, '/api/monitor/agents'),
       this.getWithRetry<Agent[]>(this.sgClient, '/api/monitor/agents'),
@@ -144,19 +126,11 @@ export class AIAgentsClient {
   }
 
   async getAgent(id: string): Promise<Agent> {
-    if (config.demoMode) {
-      const a = demoAgents().find((x) => x.id === id);
-      if (!a) throw this.notFound(id);
-      return this.relabel(a as any) as any;
-    }
     const data = await this.getWithRetry<Agent>(this.upstreamFor(id), `/api/monitor/agents/${id}`);
     return this.relabel(data as any) as any;
   }
 
   async updateAgent(id: string, update: AgentUpdateRequest): Promise<Agent> {
-    if (config.demoMode) {
-      return this.relabel({ ...(demoAgents().find((a) => a.id === id) as any), ...update }) as any;
-    }
     try {
       const response = await this.upstreamFor(id).put(`/api/monitor/agents/${id}`, update);
       return response.data;
@@ -170,9 +144,6 @@ export class AIAgentsClient {
     id: string,
     action: AgentActionRequest,
   ): Promise<{ success: boolean; message: string }> {
-    if (config.demoMode) {
-      return { success: true, message: `[demo] ${action.action} accepted on ${id}` };
-    }
     try {
       const response = await this.upstreamFor(id).post(
         `/api/monitor/agents/${id}/actions/${action.action}/execute`,
@@ -189,7 +160,6 @@ export class AIAgentsClient {
   }
 
   async getAgentLogs(id: string, limit = 100): Promise<any[]> {
-    if (config.demoMode) return demoLogs(limit);
     try {
       const response = await this.upstreamFor(id).get(`/api/monitor/agents/${id}/logs`, {
         params: { limit },
@@ -202,7 +172,6 @@ export class AIAgentsClient {
   }
 
   async getAgentAnalytics(id: string, queryParams?: string): Promise<any> {
-    if (config.demoMode) return demoAnalytics();
     try {
       const url = queryParams
         ? `/api/monitor/agents/${id}/analytics?${queryParams}`
@@ -216,7 +185,6 @@ export class AIAgentsClient {
   }
 
   async getAgentActions(id: string): Promise<any[]> {
-    if (config.demoMode) return demoActions();
     try {
       const response = await this.upstreamFor(id).get(`/api/monitor/agents/${id}/actions`);
       return response.data;
@@ -227,7 +195,6 @@ export class AIAgentsClient {
   }
 
   async checkHealth(): Promise<{ status: string; timestamp: string }> {
-    if (config.demoMode) return { status: 'ok (demo)', timestamp: new Date().toISOString() };
     try {
       const response = await this.auClient.get('/api/monitor/health');
       return response.data;
@@ -237,12 +204,6 @@ export class AIAgentsClient {
     }
   }
 
-  private notFound(id: string): Error {
-    const err = new Error(`Agent ${id} not found`);
-    (err as any).statusCode = 404;
-    (err as any).isOperational = true;
-    return err;
-  }
 
   // ========================================
   // Chat Agent Evaluation Methods

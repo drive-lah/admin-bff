@@ -40,25 +40,7 @@ export const config = {
   
   // Health check
   healthCheckTimeout: parseInt(process.env.HEALTH_CHECK_TIMEOUT || '5000', 10),
-
-  // Dev-only switches. Both are hard-gated against production.
-  demoMode:
-    process.env.NODE_ENV !== 'production' && process.env.BFF_DEMO_MODE === 'true',
-  devAuthBypass:
-    process.env.NODE_ENV !== 'production' && process.env.BFF_DEV_AUTH_BYPASS === 'true',
 };
-
-// Fail-fast: refuse to start if dev-only flags somehow leak into production.
-if (process.env.NODE_ENV === 'production') {
-  if (process.env.BFF_DEMO_MODE === 'true') {
-    console.error('BFF_DEMO_MODE=true is not allowed in production');
-    process.exit(1);
-  }
-  if (process.env.BFF_DEV_AUTH_BYPASS === 'true') {
-    console.error('BFF_DEV_AUTH_BYPASS=true is not allowed in production');
-    process.exit(1);
-  }
-}
 
 // Validation
 const requiredEnvVars = [
