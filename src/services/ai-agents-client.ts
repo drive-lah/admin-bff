@@ -120,14 +120,23 @@ export class AIAgentsClient {
       this.getWithRetry<Agent[]>(this.sgClient, '/api/monitor/agents'),
     ]);
     const merged: Agent[] = [];
+    const failures: string[] = [];
     results.forEach((r, idx) => {
       const label = idx === 0 ? 'AU monitor' : 'SG monitor';
       if (r.status === 'fulfilled') {
         merged.push(...r.value.map((a) => this.relabel(a)));
       } else {
-        logger.warn(`${label} upstream unavailable`, { error: (r.reason as any)?.message });
+        const message = (r.reason as any)?.message ?? 'unknown error';
+        logger.warn(`${label} upstream unavailable`, { error: message });
+        failures.push(`${label}: ${message}`);
       }
     });
+    if (results.every((r) => r.status === 'rejected')) {
+      const err = new Error(`All agent upstreams unavailable — ${failures.join('; ')}`);
+      (err as any).statusCode = 503;
+      (err as any).isOperational = true;
+      throw err;
+    }
     return merged;
   }
 
