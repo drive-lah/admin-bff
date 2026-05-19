@@ -28,6 +28,9 @@ export class AIAgentsClient {
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
+        ...(config.internalApiKey && {
+          'X-Internal-API-Key': config.internalApiKey,
+        }),
       },
     });
 
@@ -41,26 +44,29 @@ export class AIAgentsClient {
       },
     });
 
-    // Request interceptor (logging only — attached to AU client)
-    this.auClient.interceptors.request.use(
-      (config) => {
-        logger.info('AI Agents API Request', {
-          method: config.method?.toUpperCase(),
-          url: config.url,
-          baseURL: config.baseURL,
+    this.attachLoggingInterceptors(this.auClient, 'AU');
+    this.attachLoggingInterceptors(this.sgClient, 'SG');
+  }
+
+  private attachLoggingInterceptors(client: AxiosInstance, label: string): void {
+    client.interceptors.request.use(
+      (cfg) => {
+        logger.info(`${label} AI Agents API Request`, {
+          method: cfg.method?.toUpperCase(),
+          url: cfg.url,
+          baseURL: cfg.baseURL,
         });
-        return config;
+        return cfg;
       },
       (error) => {
-        logger.error('AI Agents API Request Error', { error: error.message });
+        logger.error(`${label} AI Agents API Request Error`, { error: error.message });
         return Promise.reject(error);
-      }
+      },
     );
 
-    // Response interceptor
-    this.auClient.interceptors.response.use(
+    client.interceptors.response.use(
       (response) => {
-        logger.info('AI Agents API Response', {
+        logger.info(`${label} AI Agents API Response`, {
           status: response.status,
           url: response.config.url,
           method: response.config.method?.toUpperCase(),
@@ -68,14 +74,14 @@ export class AIAgentsClient {
         return response;
       },
       (error) => {
-        logger.error('AI Agents API Response Error', {
+        logger.error(`${label} AI Agents API Response Error`, {
           status: error.response?.status,
           url: error.config?.url,
           message: error.message,
           response: error.response?.data,
         });
         return Promise.reject(error);
-      }
+      },
     );
   }
 
@@ -84,8 +90,8 @@ export class AIAgentsClient {
     return market === 'SG' ? this.sgClient : this.auClient;
   }
 
-  private relabel<T extends { id: string; name: string }>(agent: T): T & { market: Market } {
-    const market = (AGENT_MARKET.get(agent.id) ?? 'AU') as Market;
+  private relabel<T extends Agent>(agent: T): T {
+    const market: Market = AGENT_MARKET.get(agent.id) ?? 'AU';
     const renamed = RENAME.get(agent.id);
     return { ...agent, market, ...(renamed ? { name: renamed } : {}) };
   }
@@ -117,7 +123,7 @@ export class AIAgentsClient {
     results.forEach((r, idx) => {
       const label = idx === 0 ? 'AU monitor' : 'SG monitor';
       if (r.status === 'fulfilled') {
-        merged.push(...r.value.map((a) => this.relabel(a as any) as any));
+        merged.push(...r.value.map((a) => this.relabel(a)));
       } else {
         logger.warn(`${label} upstream unavailable`, { error: (r.reason as any)?.message });
       }
@@ -127,7 +133,7 @@ export class AIAgentsClient {
 
   async getAgent(id: string): Promise<Agent> {
     const data = await this.getWithRetry<Agent>(this.upstreamFor(id), `/api/monitor/agents/${id}`);
-    return this.relabel(data as any) as any;
+    return this.relabel(data);
   }
 
   async updateAgent(id: string, update: AgentUpdateRequest): Promise<Agent> {
@@ -203,7 +209,6 @@ export class AIAgentsClient {
       throw this.handleError(error);
     }
   }
-
 
   // ========================================
   // Chat Agent Evaluation Methods

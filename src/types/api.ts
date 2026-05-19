@@ -1,5 +1,7 @@
 // Shared types between frontend and BFF
 
+export type Market = 'AU' | 'SG';
+
 export interface Agent {
   id: string;
   name: string;
@@ -7,6 +9,7 @@ export interface Agent {
   type: string;
   description: string;
   lastHeartbeat?: string;
+  market?: Market;
   metrics?: {
     uptime: string;
     requests: number;

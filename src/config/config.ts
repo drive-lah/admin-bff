@@ -16,7 +16,7 @@ export const config = {
   
   // External API URLs
   aiAgentsApiUrl: process.env.AI_AGENTS_API_URL || 'https://new-monitor-api-1.onrender.com',
-  sgCollectionsApiUrl: process.env.SG_COLLECTIONS_API_URL || 'http://localhost:3000',
+  sgCollectionsApiUrl: process.env.SG_COLLECTIONS_API_URL || '',
   listingAgentApiUrl: process.env.LISTING_AGENT_API_URL || 'http://localhost:9000',
   usersApiUrl: process.env.USERS_API_URL || '',
   listingsApiUrl: process.env.LISTINGS_API_URL || '',
