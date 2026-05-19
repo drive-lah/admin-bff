@@ -1,6 +1,5 @@
 // Per-agent UUID registry. Same SG_COLLECTIONS_AGENT_UUID is committed in:
 //   ai-collection-agents/apps/api/src/monitor/types.ts
-//   admin-controls/src/features/ai-agents/components/AgentDetailView.tsx
 
 export const AU_COLLECTIONS_AGENT_UUID = 'a19c35a3-f2ab-532f-a493-64a5fe9e88ff';
 export const AU_CHAT_AGENT_UUID = '1986da29-e8b8-5f55-b51e-e6181fd37c94';
