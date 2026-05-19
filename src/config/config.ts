@@ -30,6 +30,7 @@ export const config = {
   
   // API Keys and secrets
   internalApiKey: process.env.INTERNAL_API_KEY || 'your-internal-api-key',
+  sgInternalApiKey: process.env.SG_INTERNAL_API_KEY || '',
   
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',

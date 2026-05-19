@@ -28,8 +28,8 @@ export class AIAgentsClient {
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Drivelah-Admin-BFF/1.0.0',
-        ...(config.internalApiKey && {
-          'X-Internal-API-Key': config.internalApiKey,
+        ...(config.sgInternalApiKey && {
+          'X-Internal-API-Key': config.sgInternalApiKey,
         }),
       },
     });
