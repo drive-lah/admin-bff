@@ -21,12 +21,19 @@ npm run build && npm start  # Production
 
 **Required env vars:**
 ```
-AI_AGENTS_API_URL=https://new-monitor-api-latest.onrender.com   # Backend URL
+AI_AGENTS_API_URL=https://new-monitor-api-latest.onrender.com   # AU monitor (backend)
+SG_COLLECTIONS_API_URL=https://collections-api-syx2.onrender.com # SG collections upstream
+SG_INTERNAL_API_KEY=...   # (optional) X-Internal-API-Key for the SG upstream
 GOOGLE_CLIENT_ID=...      # Google OAuth app client ID
 JWT_SECRET=...            # Secret for signing BFF JWTs
 ALLOWED_ORIGINS=http://localhost:5173,...
 ADMIN_SECRET=...          # For kill-switch endpoints
 ```
+
+> `/api/admin/ai-agents` aggregates **two upstreams** — the AU monitor
+> (`AI_AGENTS_API_URL`) and the SG collections service
+> (`SG_COLLECTIONS_API_URL`). Agents are tagged with a `market` field
+> (`AU` | `SG`); see [agent-uuids.ts](./src/services/agent-uuids.ts).
 
 ---
 
@@ -39,7 +46,7 @@ All routes under `/api/admin/*` require a valid Bearer JWT (issued by this servi
 | `/api/auth` | Issues JWTs — no auth required |
 | `/api/admin/verifications` | new-monitor-api `/api/verifications/*` |
 | `/api/admin/kpis` | new-monitor-api `/api/kpis/*` |
-| `/api/admin/ai-agents` | new-monitor-api `/api/agents/*` |
+| `/api/admin/ai-agents` | AU monitor + SG collections upstreams `/api/monitor/agents` (aggregated by market) |
 | `/api/admin/users` | new-monitor-api `/api/admin/users/*` |
 | `/api/admin/finance` | new-monitor-api `/api/finance/*` |
 | `/api/health` | Local health check |
