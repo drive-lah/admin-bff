@@ -165,6 +165,7 @@ async function startServer() {
       logger.info(`🚀 Admin BFF Server with User Registry running on port ${PORT}`, {
         environment: config.nodeEnv,
         aiAgentsApiUrl: config.aiAgentsApiUrl,
+        sgCollectionsApiUrl: config.sgCollectionsApiUrl,
         database: 'SQLite (User Registry)',
       });
     });

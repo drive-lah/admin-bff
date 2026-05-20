@@ -53,6 +53,11 @@ ALLOWED_DOMAINS=drivelah.sg,drivemate.au,drivemate.nz
 # Backend API (Monitor API)
 BACKEND_API_URL=https://your-monitor-api.onrender.com
 
+# AI Agent upstreams (admin-bff aggregates AU + SG markets)
+AI_AGENTS_API_URL=https://new-monitor-api-1.onrender.com          # AU monitor
+SG_COLLECTIONS_API_URL=https://collections-api-syx2.onrender.com  # SG collections (required)
+SG_INTERNAL_API_KEY=your-sg-internal-api-key                      # optional X-Internal-API-Key for SG
+
 # Server Configuration
 PORT=3001
 NODE_ENV=production

@@ -13,6 +13,8 @@ services:
         value: 10000
       - key: AI_AGENTS_API_URL
         sync: false
+      - key: SG_COLLECTIONS_API_URL
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: JWT_SECRET
@@ -21,6 +23,8 @@ services:
         value: 24h
       - key: INTERNAL_API_KEY
         generateValue: true
+      - key: SG_INTERNAL_API_KEY
+        sync: false
       - key: ALLOWED_ORIGINS
         value: https://admin-controls.drivelah.sg,https://*.onrender.com
       - key: LOG_LEVEL
