@@ -144,6 +144,7 @@ export const requireModuleAccess = (
           method: req.method,
         },
       });
+      return;
     }
   };
 };

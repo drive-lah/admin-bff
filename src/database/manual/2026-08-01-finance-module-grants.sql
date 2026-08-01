@@ -45,11 +45,15 @@ ON CONFLICT (user_id, module) DO NOTHING;
 -- ---- STEP 2: every active user gets self-serve `own` on the personal modules -
 -- So each employee can see/file only their OWN expenses + payslip. Users who
 -- already hold read+ (finance processors / HR) keep the higher grant (DO NOTHING).
+-- granted_by = the system admin. The CTE is a HARD PRECONDITION: if the admin
+-- account is absent this INSERT selects zero rows (cross join with an empty CTE)
+-- rather than silently self-granting each user their own permission. If STEP 2
+-- inserts nothing, the admin account is missing on this instance — fix that first.
+WITH admin AS (SELECT id FROM users WHERE email = 'admin@drivelah.sg' LIMIT 1)
 INSERT INTO user_permissions (user_id, module, access_level, granted_by, granted_at)
-SELECT u.id, m.module, 'own',
-       COALESCE((SELECT id FROM users WHERE email = 'admin@drivelah.sg' LIMIT 1), u.id),
-       CURRENT_TIMESTAMP
+SELECT u.id, m.module, 'own', admin.id, CURRENT_TIMESTAMP
 FROM users u
+CROSS JOIN admin
 CROSS JOIN (VALUES ('finance.expenses'), ('finance.payroll')) AS m(module)
 WHERE u.status = 'active'
 ON CONFLICT (user_id, module) DO NOTHING;
@@ -61,4 +65,8 @@ ON CONFLICT (user_id, module) DO NOTHING;
 COMMIT;
 
 -- ---- ROLLBACK (if ever needed) ---------------------------------------------
+-- Valid ONLY for rolling back THIS migration (before M5). After M5 the
+-- `finance.*` rows are the canonical grants — do NOT run this then, it would
+-- wipe all live finance permissions. Scope by run time if unsure:
+--   DELETE FROM user_permissions WHERE module LIKE 'finance.%' AND granted_at >= '<this-run-timestamp>';
 -- DELETE FROM user_permissions WHERE module LIKE 'finance.%';

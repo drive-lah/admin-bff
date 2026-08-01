@@ -126,12 +126,10 @@ export class AuthService {
     module: string,
     requiredLevel: AccessLevel = 'read'
   ): Promise<boolean> {
-    try {
-      return await this.userRegistry.hasModuleAccess(userId, module, requiredLevel);
-    } catch (error) {
-      logger.error('Error checking module access', { userId, module, requiredLevel, error });
-      return false;
-    }
+    // Do NOT swallow to `false` — a DB failure must propagate so the middleware
+    // returns 500, not a silent 403 lockout. requireModuleAccess has the outer
+    // try/catch that turns this into a 500.
+    return await this.userRegistry.hasModuleAccess(userId, module, requiredLevel);
   }
 
   /**

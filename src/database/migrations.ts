@@ -132,10 +132,14 @@ export class DatabaseMigrations {
       await db.run(`CREATE INDEX IF NOT EXISTS idx_user_permissions_module ON user_permissions(module)`);
 
       // Widen access_level to include the row-level `own` scope (finance module
-      // split). Idempotent: existing prod tables were created with a 3-value
-      // CHECK; drop + re-add so `own` is accepted. Safe — only widens the domain.
+      // split). Idempotent + prod-safe: DROP is metadata-only; ADD ... NOT VALID
+      // adds the constraint WITHOUT a validating full-table scan under an
+      // ACCESS EXCLUSIVE lock (all existing rows are read/write/admin, already
+      // valid — validation is provably unnecessary). VALIDATE then confirms
+      // under a lighter SHARE UPDATE EXCLUSIVE lock that does not block r/w.
       await db.run(`ALTER TABLE user_permissions DROP CONSTRAINT IF EXISTS user_permissions_access_level_check`);
-      await db.run(`ALTER TABLE user_permissions ADD CONSTRAINT user_permissions_access_level_check CHECK (access_level IN ('own', 'read', 'write', 'admin'))`);
+      await db.run(`ALTER TABLE user_permissions ADD CONSTRAINT user_permissions_access_level_check CHECK (access_level IN ('own', 'read', 'write', 'admin')) NOT VALID`);
+      await db.run(`ALTER TABLE user_permissions VALIDATE CONSTRAINT user_permissions_access_level_check`);
 
       // Create indexes for admin_user_logs table
       await db.run(`CREATE INDEX IF NOT EXISTS idx_logs_user_id ON admin_user_logs(user_id)`);
@@ -211,6 +215,7 @@ export class DatabaseMigrations {
           await db.run(`
             INSERT INTO user_permissions (user_id, module, access_level, granted_by, granted_at)
             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id, module) DO NOTHING
           `, [adminUser.id, module, 'admin', adminUser.id]);
         }
       }
