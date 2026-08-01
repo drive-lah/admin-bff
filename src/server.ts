@@ -8,7 +8,7 @@ import { config } from './config/config';
 import { logger } from './utils/logger';
 import { errorHandler, asyncHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
-import { authenticateToken, requireModuleAccess, requireUserManagement } from './middleware/auth-enhanced';
+import { authenticateToken, requireModuleAccess, requireUserManagement, requireFinanceRouteAccess } from './middleware/auth-enhanced';
 import { activityLoggingMiddleware } from './middleware/activity-logging';
 import { DatabaseMigrations } from './database/migrations';
 import { logCleanup } from './services/log-cleanup';
@@ -123,11 +123,13 @@ app.use('/api/admin/ai-agents', authMiddleware, requireModuleAccess('ai-agents',
 // Temporarily disabled - multer dependency issue
 // app.use('/api/admin/collections', authMiddleware, requireModuleAccess('ai-agents', 'read'), collectionsRouter);
 
-// Finance module - requires 'finance' module access
-app.use('/api/admin/finance', authMiddleware, requireModuleAccess('finance', 'read'), financeRouter);
+// Finance module (M5) — gated per finance.* sub-module by URL path + HTTP method
+// (see requireFinanceRouteAccess). Collections/revenue endpoints → finance.collections.
+app.use('/api/admin/finance', authMiddleware, requireFinanceRouteAccess(), financeRouter);
 
-// Finance Accounting module - requires 'finance' write access for accounting operations
-app.use('/api/admin/finance', authMiddleware, requireModuleAccess('finance', 'write'), financeAccountingRouter);
+// Finance Accounting module (M5) — same path-based sub-module gate: ledger /
+// invoices / reports / counterparties / payroll resolved from the route.
+app.use('/api/admin/finance', authMiddleware, requireFinanceRouteAccess(), financeAccountingRouter);
 
 // KPIs endpoint - accessible to users with 'core' or 'host-management' module access
 // This is checked within the kpisRouter based on the team parameter

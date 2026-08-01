@@ -156,6 +156,41 @@ export const requireModuleAccess = (
 };
 
 /**
+ * M5 — path-based finance gate. Resolves the required finance.* sub-module from
+ * the request URL and the level from the HTTP method (GET/HEAD = read, else
+ * write), then delegates to requireModuleAccess. Replaces the flat `finance`
+ * gate so access can be granted per area (ledger vs invoices vs payroll ...).
+ * A legacy `finance` grant still passes every finance.* check via the shim in
+ * hasModuleAccess, so this does not lock out existing holders. An unmatched
+ * finance path falls back to the legacy `finance` module (also shim-covered)
+ * and logs, so a new/unmapped route can never silently open or hard-lock.
+ */
+const FINANCE_ROUTE_MODULES: Array<[RegExp, string]> = [
+  [/\/(collections|revenue-accruals|host-expenses|cash-movements|stripe-payouts)(\/|$|\?)/, 'finance.collections'],
+  [/\/accounting\/(invoices|contracts|approval-rules)(\/|$|\?)/, 'finance.invoices'],
+  [/\/accounting\/reports(\/|$|\?)/, 'finance.reports'],
+  [/\/accounting\/counterparties(\/|$|\?)/, 'finance.counterparties'],
+  [/\/accounting(\/|$|\?)/, 'finance.ledger'],
+  [/\/hr(\/|$|\?)/, 'finance.payroll'],
+];
+
+export const requireFinanceRouteAccess = () => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const path = (req.originalUrl || req.url || '').split('?')[0] || '';
+    const level: AccessLevel =
+      req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS' ? 'read' : 'write';
+    let mod = 'finance'; // legacy fallback (shim-covered) for any unmapped finance path
+    for (const [re, m] of FINANCE_ROUTE_MODULES) {
+      if (re.test(path)) { mod = m; break; }
+    }
+    if (mod === 'finance') {
+      logger.warn('Finance route did not match a sub-module; using legacy finance gate', { path });
+    }
+    requireModuleAccess(mod, level)(req, res, next);
+  };
+};
+
+/**
  * Middleware to check if user has admin role
  */
 export const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
