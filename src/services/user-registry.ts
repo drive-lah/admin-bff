@@ -12,6 +12,7 @@ import {
 import { logger } from '../utils/logger';
 import { activityLogger } from './activity-logger';
 import { ActionType } from '../types/logs';
+import { AccessLevel, ACCESS_LEVELS, FINANCE_MODULES, satisfiesLevel } from '../constants/modules';
 
 export class UserRegistryService {
   private googleWorkspace: GoogleWorkspaceService;
@@ -435,24 +436,39 @@ export class UserRegistryService {
     }
   }
 
-  public async hasModuleAccess(userId: number, module: string, requiredLevel: 'read' | 'write' | 'admin' = 'read'): Promise<boolean> {
-    try {
-      const permission = await db.get<UserPermission>(`
+  public async hasModuleAccess(userId: number, module: string, requiredLevel: AccessLevel = 'read'): Promise<boolean> {
+    // NOTE: DB errors are NOT swallowed here. A failed query must propagate so
+    // the caller returns 500 (honest infra failure), never a silent 403 that
+    // looks like a permissions problem and locks every user out during an
+    // outage. Only a genuinely-missing grant row means "no access".
+    let permission = await db.get<UserPermission>(`
+      SELECT * FROM user_permissions
+      WHERE user_id = $1 AND module = $2
+    `, [userId, module]);
+
+    // Backward-compat shim (finance module split, expand→migrate→contract):
+    // a legacy `finance` grant covers every KNOWN `finance.*` sub-module until
+    // the M2 grants are migrated + verified, then this fallback is removed (M5).
+    // Restricted to FINANCE_MODULES (not startsWith) so a future deliberately-
+    // restricted `finance.*` module is NOT silently inherited by legacy holders.
+    if (!permission && (FINANCE_MODULES as readonly string[]).includes(module)) {
+      permission = await db.get<UserPermission>(`
         SELECT * FROM user_permissions
         WHERE user_id = $1 AND module = $2
-      `, [userId, module]);
+      `, [userId, 'finance']);
+    }
 
-      if (!permission) return false;
+    if (!permission) return false;
 
-      const accessLevels = ['read', 'write', 'admin'];
-      const userLevel = accessLevels.indexOf(permission.access_level);
-      const requiredLevelIndex = accessLevels.indexOf(requiredLevel);
-
-      return userLevel >= requiredLevelIndex;
-    } catch (error) {
-      logger.error(`Error checking module access for user ${userId}:`, error);
+    // An unrecognised access_level (data corruption / a level added to the DB
+    // before the code knows it) fails closed — but log it, or the denial is
+    // invisible.
+    if (!(ACCESS_LEVELS as readonly string[]).includes(permission.access_level)) {
+      logger.warn(`Unknown access_level '${permission.access_level}' for user ${userId} module ${module} — denying`);
       return false;
     }
+
+    return satisfiesLevel(permission.access_level, requiredLevel);
   }
 
   public async getUserModuleAccess(userId: number): Promise<ModuleAccess[]> {

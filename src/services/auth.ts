@@ -3,6 +3,7 @@ import { UserRegistryService } from './user-registry';
 import { GoogleWorkspaceService } from './google-workspace';
 import { User } from '../types/user';
 import { logger } from '../utils/logger';
+import { AccessLevel } from '../constants/modules';
 
 export interface JWTPayload {
   userId: number;
@@ -123,14 +124,12 @@ export class AuthService {
   public async hasModuleAccess(
     userId: number,
     module: string,
-    requiredLevel: 'read' | 'write' | 'admin' = 'read'
+    requiredLevel: AccessLevel = 'read'
   ): Promise<boolean> {
-    try {
-      return await this.userRegistry.hasModuleAccess(userId, module, requiredLevel);
-    } catch (error) {
-      logger.error('Error checking module access', { userId, module, requiredLevel, error });
-      return false;
-    }
+    // Do NOT swallow to `false` — a DB failure must propagate so the middleware
+    // returns 500, not a silent 403 lockout. requireModuleAccess has the outer
+    // try/catch that turns this into a 500.
+    return await this.userRegistry.hasModuleAccess(userId, module, requiredLevel);
   }
 
   /**
