@@ -12,7 +12,7 @@ import {
 import { logger } from '../utils/logger';
 import { activityLogger } from './activity-logger';
 import { ActionType } from '../types/logs';
-import { AccessLevel, ACCESS_LEVELS, satisfiesLevel } from '../constants/modules';
+import { AccessLevel, ACCESS_LEVELS, FINANCE_MODULES, satisfiesLevel } from '../constants/modules';
 
 export class UserRegistryService {
   private googleWorkspace: GoogleWorkspaceService;
@@ -447,9 +447,11 @@ export class UserRegistryService {
     `, [userId, module]);
 
     // Backward-compat shim (finance module split, expand→migrate→contract):
-    // a legacy `finance` grant covers every `finance.*` sub-module until the M2
-    // grants are migrated + verified, then this fallback is removed (M5).
-    if (!permission && module.startsWith('finance.')) {
+    // a legacy `finance` grant covers every KNOWN `finance.*` sub-module until
+    // the M2 grants are migrated + verified, then this fallback is removed (M5).
+    // Restricted to FINANCE_MODULES (not startsWith) so a future deliberately-
+    // restricted `finance.*` module is NOT silently inherited by legacy holders.
+    if (!permission && (FINANCE_MODULES as readonly string[]).includes(module)) {
       permission = await db.get<UserPermission>(`
         SELECT * FROM user_permissions
         WHERE user_id = $1 AND module = $2

@@ -35,28 +35,33 @@ CROSS JOIN (VALUES
   ('finance.collections'),
   ('finance.invoices'),
   ('finance.ledger'),
-  ('finance.reports'),
-  ('finance.expenses'),
-  ('finance.payroll')
+  ('finance.reports')
+  -- NOTE: finance.expenses + finance.payroll are DELIBERATELY EXCLUDED here.
+  -- Those are PERSONAL_MODULES (row-level `own` scope). Fanning the legacy
+  -- level (often admin) out to them would grant company-wide payroll/salary
+  -- access to every legacy finance holder BEFORE any owner-row filter exists.
+  -- They are granted only via STEP 2, and only once M4 owner-scoping is built.
 ) AS m(module)
 WHERE p.module = 'finance'
 ON CONFLICT (user_id, module) DO NOTHING;
 
--- ---- STEP 2: every active user gets self-serve `own` on the personal modules -
--- So each employee can see/file only their OWN expenses + payslip. Users who
--- already hold read+ (finance processors / HR) keep the higher grant (DO NOTHING).
--- granted_by = the system admin. The CTE is a HARD PRECONDITION: if the admin
--- account is absent this INSERT selects zero rows (cross join with an empty CTE)
--- rather than silently self-granting each user their own permission. If STEP 2
--- inserts nothing, the admin account is missing on this instance — fix that first.
-WITH admin AS (SELECT id FROM users WHERE email = 'admin@drivelah.sg' LIMIT 1)
-INSERT INTO user_permissions (user_id, module, access_level, granted_by, granted_at)
-SELECT u.id, m.module, 'own', admin.id, CURRENT_TIMESTAMP
-FROM users u
-CROSS JOIN admin
-CROSS JOIN (VALUES ('finance.expenses'), ('finance.payroll')) AS m(module)
-WHERE u.status = 'active'
-ON CONFLICT (user_id, module) DO NOTHING;
+-- ---- STEP 2: self-serve `own` on the personal modules — HELD (do NOT run) ----
+-- ⛔ BLOCKED ON M4. `own` means "see only your own row", enforced by a
+-- WHERE owner_user_id = req.user.id filter in the payroll/expenses handlers.
+-- That enforcement does NOT exist yet. Granting `own` to every active user now,
+-- with no row filter, means the moment a payroll route is gated at `own` every
+-- employee could read ALL payslips (salary/CPF/super/income-tax) — a PII breach.
+-- Run this ONLY after M4 (owner_user_id column + own-filter middleware) lands
+-- AND is verified. Kept here so the intended grant is unambiguous.
+--
+-- WITH admin AS (SELECT id FROM users WHERE email = 'admin@drivelah.sg' LIMIT 1)
+-- INSERT INTO user_permissions (user_id, module, access_level, granted_by, granted_at)
+-- SELECT u.id, m.module, 'own', admin.id, CURRENT_TIMESTAMP
+-- FROM users u
+-- CROSS JOIN admin
+-- CROSS JOIN (VALUES ('finance.expenses'), ('finance.payroll')) AS m(module)
+-- WHERE u.status = 'active'
+-- ON CONFLICT (user_id, module) DO NOTHING;
 
 -- ---- VERIFY (still inside the txn; COMMIT only if these look right) ----------
 -- SELECT module, access_level, count(*) FROM user_permissions
