@@ -3,6 +3,7 @@ import { UserRegistryService } from './user-registry';
 import { GoogleWorkspaceService } from './google-workspace';
 import { User } from '../types/user';
 import { logger } from '../utils/logger';
+import { AccessLevel } from '../constants/modules';
 
 export interface JWTPayload {
   userId: number;
@@ -123,7 +124,7 @@ export class AuthService {
   public async hasModuleAccess(
     userId: number,
     module: string,
-    requiredLevel: 'read' | 'write' | 'admin' = 'read'
+    requiredLevel: AccessLevel = 'read'
   ): Promise<boolean> {
     try {
       return await this.userRegistry.hasModuleAccess(userId, module, requiredLevel);

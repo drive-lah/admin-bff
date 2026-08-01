@@ -1,5 +1,6 @@
 import { db } from './database';
 import { logger } from '../utils/logger';
+import { MODULES } from '../constants/modules';
 
 export class DatabaseMigrations {
   public static async runMigrations(): Promise<void> {
@@ -87,7 +88,7 @@ export class DatabaseMigrations {
           id SERIAL PRIMARY KEY,
           user_id INTEGER NOT NULL,
           module VARCHAR(100) NOT NULL,
-          access_level VARCHAR(50) NOT NULL CHECK (access_level IN ('read', 'write', 'admin')),
+          access_level VARCHAR(50) NOT NULL CHECK (access_level IN ('own', 'read', 'write', 'admin')),
           granted_by INTEGER NOT NULL,
           granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -129,6 +130,12 @@ export class DatabaseMigrations {
       await db.run(`CREATE INDEX IF NOT EXISTS idx_users_manager_id ON users(manager_id)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_user_permissions_user_id ON user_permissions(user_id)`);
       await db.run(`CREATE INDEX IF NOT EXISTS idx_user_permissions_module ON user_permissions(module)`);
+
+      // Widen access_level to include the row-level `own` scope (finance module
+      // split). Idempotent: existing prod tables were created with a 3-value
+      // CHECK; drop + re-add so `own` is accepted. Safe — only widens the domain.
+      await db.run(`ALTER TABLE user_permissions DROP CONSTRAINT IF EXISTS user_permissions_access_level_check`);
+      await db.run(`ALTER TABLE user_permissions ADD CONSTRAINT user_permissions_access_level_check CHECK (access_level IN ('own', 'read', 'write', 'admin'))`);
 
       // Create indexes for admin_user_logs table
       await db.run(`CREATE INDEX IF NOT EXISTS idx_logs_user_id ON admin_user_logs(user_id)`);
@@ -197,8 +204,8 @@ export class DatabaseMigrations {
       const adminUser = await db.get<{ id: number }>('SELECT id FROM users WHERE email = $1', ['admin@drivelah.sg']);
 
       if (adminUser) {
-        // Grant all module permissions to the admin
-        const modules = ['users', 'finance', 'ai-agents', 'tech', 'listings', 'transactions', 'resolution', 'claims', 'host-management'];
+        // Grant all module permissions to the admin (canonical set — src/constants/modules.ts)
+        const modules = MODULES;
 
         for (const module of modules) {
           await db.run(`

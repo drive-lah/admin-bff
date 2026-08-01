@@ -7,6 +7,7 @@ import { APIResponse } from '../types/api';
 import { activityLogger } from '../services/activity-logger';
 import { ActionType } from '../types/logs';
 import { config } from '../config/config';
+import { MODULES } from '../constants/modules';
 
 export const authRouter = Router();
 
@@ -178,7 +179,7 @@ authRouter.post('/dev-login', asyncHandler(async (req, res) => {
       name,
       role: 'admin',
       team: 'finance',
-      modules: ['finance', 'core', 'ai-agents', 'user-mgmt', 'host-management', 'kpis', '*'],
+      modules: [...MODULES],
     },
     config.jwtSecret,
     { expiresIn: config.jwtExpiresIn as any }
@@ -197,7 +198,7 @@ authRouter.post('/dev-login', asyncHandler(async (req, res) => {
         role: 'admin',
         teams: ['finance'],
         permissions: {
-          modules: ['finance', 'core', 'ai-agents', 'user-mgmt', 'host-management', 'kpis', '*'],
+          modules: [...MODULES],
           role: 'admin'
         }
       },

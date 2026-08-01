@@ -12,6 +12,7 @@ import {
 import { logger } from '../utils/logger';
 import { activityLogger } from './activity-logger';
 import { ActionType } from '../types/logs';
+import { AccessLevel, satisfiesLevel } from '../constants/modules';
 
 export class UserRegistryService {
   private googleWorkspace: GoogleWorkspaceService;
@@ -435,20 +436,26 @@ export class UserRegistryService {
     }
   }
 
-  public async hasModuleAccess(userId: number, module: string, requiredLevel: 'read' | 'write' | 'admin' = 'read'): Promise<boolean> {
+  public async hasModuleAccess(userId: number, module: string, requiredLevel: AccessLevel = 'read'): Promise<boolean> {
     try {
-      const permission = await db.get<UserPermission>(`
+      let permission = await db.get<UserPermission>(`
         SELECT * FROM user_permissions
         WHERE user_id = $1 AND module = $2
       `, [userId, module]);
 
+      // Backward-compat shim (finance module split, expand→migrate→contract):
+      // a legacy `finance` grant covers every `finance.*` sub-module until the M2
+      // grants are migrated + verified, then this fallback is removed (M5).
+      if (!permission && module.startsWith('finance.')) {
+        permission = await db.get<UserPermission>(`
+          SELECT * FROM user_permissions
+          WHERE user_id = $1 AND module = $2
+        `, [userId, 'finance']);
+      }
+
       if (!permission) return false;
 
-      const accessLevels = ['read', 'write', 'admin'];
-      const userLevel = accessLevels.indexOf(permission.access_level);
-      const requiredLevelIndex = accessLevels.indexOf(requiredLevel);
-
-      return userLevel >= requiredLevelIndex;
+      return satisfiesLevel(permission.access_level, requiredLevel);
     } catch (error) {
       logger.error(`Error checking module access for user ${userId}:`, error);
       return false;

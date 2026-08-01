@@ -3,6 +3,7 @@ import { AuthService } from '../services/auth';
 import { User } from '../types/user';
 import { AuthenticatedUser } from './auth';
 import { logger } from '../utils/logger';
+import { AccessLevel } from '../constants/modules';
 
 const authService = new AuthService();
 
@@ -77,7 +78,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
  */
 export const requireModuleAccess = (
   module: string,
-  requiredLevel: 'read' | 'write' | 'admin' = 'read'
+  requiredLevel: AccessLevel = 'read'
 ) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

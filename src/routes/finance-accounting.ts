@@ -13,6 +13,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 export const financeAccountingRouter = Router();
 
 const FINANCE_API_BASE = () => `${config.financeApiUrl}/api/finance`;
+const ACCOUNTING_API_BASE = () => `${config.financeApiUrl}/api/accounting`;
 const HR_API_BASE = () => `${config.financeApiUrl}/api/hr`;
 const JOBS_API_BASE = () => `${config.financeApiUrl}/api/jobs`;
 
@@ -451,10 +452,19 @@ financeAccountingRouter.get('/accounting/transactions', asyncHandler(async (req:
         ...(req.query.date_from && { date_from: req.query.date_from }),
         ...(req.query.date_to && { date_to: req.query.date_to }),
         ...(req.query.search && { search: req.query.search }),
+        ...(req.query.journal_entry_id && { journal_entry_id: req.query.journal_entry_id }),
+        ...(req.query.sort_by && { sort_by: req.query.sort_by }),
+        ...(req.query.sort_dir && { sort_dir: req.query.sort_dir }),
         ...(req.query.limit && { limit: req.query.limit }),
         ...(req.query.offset && { offset: req.query.offset }),
       },
     });
+    // Re-expose the finance API's exact total count to the browser.
+    const totalCount = response.headers['x-total-count'];
+    if (totalCount !== undefined) {
+      res.set('X-Total-Count', String(totalCount));
+      res.set('Access-Control-Expose-Headers', 'X-Total-Count');
+    }
     const apiResponse: APIResponse = {
       data: response.data,
       message: 'Transactions retrieved successfully',
@@ -553,6 +563,68 @@ financeAccountingRouter.post('/accounting/transactions/:id/reject', asyncHandler
     res.status(error.response?.status || 500).json({
       error: {
         message: error.response?.data?.error || 'Failed to reject transaction',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/transactions/:id/resolve-needs-review
+financeAccountingRouter.post('/accounting/transactions/:id/resolve-needs-review', asyncHandler(async (req: any, res: any) => {
+  logger.info('Resolving needs-review transaction', { id: req.params.id });
+  try {
+    const url = `${FINANCE_API_BASE()}/transactions/${req.params.id}/resolve-needs-review`;
+    const response = await axios.post(url, req.body, {
+      timeout: 30000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Transaction resolved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to resolve needs-review transaction', { error: error.message, id: req.params.id });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to resolve transaction',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/transactions/bulk
+financeAccountingRouter.post('/accounting/transactions/bulk', asyncHandler(async (req: any, res: any) => {
+  logger.info('Running bulk transaction action via finance API', { action: req.body?.action, count: req.body?.ids?.length });
+  try {
+    const url = `${FINANCE_API_BASE()}/transactions/bulk`;
+    // run_categorization over 500 ids can hold the line for minutes (AI phase);
+    // a shorter timeout here aborts the PROXY while finance-api finishes anyway,
+    // making the FE report failure for work that succeeded (seen 2026-07-26:
+    // 123s run vs 120s timeout).
+    const response = await axios.post(url, req.body, {
+      timeout: 600000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Bulk transaction action completed',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Bulk transaction action failed', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Bulk transaction action failed',
         statusCode: error.response?.status || 500,
         timestamp: new Date().toISOString(),
         path: req.path,
@@ -868,6 +940,152 @@ financeAccountingRouter.get('/accounting/reports/trial-balance', asyncHandler(as
   }
 }));
 
+// GET /accounting/reports/pnl
+financeAccountingRouter.get('/accounting/reports/pnl', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching P&L report from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/reports/pnl`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.date_from && { date_from: req.query.date_from }),
+        ...(req.query.date_to && { date_to: req.query.date_to }),
+        ...(req.query.basis && { basis: req.query.basis }),
+        ...(req.query.sgd_usd_rate && { sgd_usd_rate: req.query.sgd_usd_rate }),
+        ...(req.query.aud_usd_rate && { aud_usd_rate: req.query.aud_usd_rate }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'P&L report retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch P&L report', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve P&L report',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /accounting/reports/balance-sheet
+financeAccountingRouter.get('/accounting/reports/balance-sheet', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching balance sheet report from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/reports/balance-sheet`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.date_to && { date_to: req.query.date_to }),
+        ...(req.query.basis && { basis: req.query.basis }),
+        ...(req.query.sgd_usd_rate && { sgd_usd_rate: req.query.sgd_usd_rate }),
+        ...(req.query.aud_usd_rate && { aud_usd_rate: req.query.aud_usd_rate }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Balance sheet report retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch balance sheet report', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve balance sheet report',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /accounting/reports/cash-flow
+financeAccountingRouter.get('/accounting/reports/cash-flow', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching cash flow report from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/reports/cash-flow`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.date_from && { date_from: req.query.date_from }),
+        ...(req.query.date_to && { date_to: req.query.date_to }),
+        ...(req.query.basis && { basis: req.query.basis }),
+        ...(req.query.sgd_usd_rate && { sgd_usd_rate: req.query.sgd_usd_rate }),
+        ...(req.query.aud_usd_rate && { aud_usd_rate: req.query.aud_usd_rate }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Cash flow report retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch cash flow report', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve cash flow report',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /accounting/reports/account-ledger
+financeAccountingRouter.get('/accounting/reports/account-ledger', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching account ledger from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/reports/account-ledger`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.account_code && { account_code: req.query.account_code }),
+        ...(req.query.date_from && { date_from: req.query.date_from }),
+        ...(req.query.date_to && { date_to: req.query.date_to }),
+        ...(req.query.basis && { basis: req.query.basis }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Account ledger retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch account ledger', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve account ledger',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
 // ---------------------------------------------------------------------------
 // Categorization Rules
 // ---------------------------------------------------------------------------
@@ -1101,6 +1319,24 @@ financeAccountingRouter.get('/accounting/counterparties/:id', asyncHandler(async
   }
 }));
 
+// GET /accounting/counterparties/:id/statement
+// Vendor-level Statement of Account (summary + aging + chronological lines with paid dates)
+financeAccountingRouter.get('/accounting/counterparties/:id/statement', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/counterparties/${req.params.id}/statement`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: defaultHeaders,
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+      },
+    });
+    res.json({ data: response.data, message: 'Counterparty statement retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to retrieve counterparty statement', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // PUT /accounting/counterparties/:id
 financeAccountingRouter.put('/accounting/counterparties/:id', asyncHandler(async (req: any, res: any) => {
   try {
@@ -1170,12 +1406,18 @@ financeAccountingRouter.post('/accounting/counterparties/sync/employees', asyncH
 // GET /accounting/invoices
 financeAccountingRouter.get('/accounting/invoices', asyncHandler(async (req: any, res: any) => {
   try {
+    const passthrough = ['entity_id','status','counterparty_id','search','vendor_flag','coa_flag',
+      'document_gate','currency_flag','retool_status','sub_category','amount_match','provisional_paid',
+      'retool_id','is_duplicate','limit','offset'];
     const params = new URLSearchParams();
-    if (req.query.entity_id) params.append('entity_id', req.query.entity_id as string);
-    if (req.query.status) params.append('status', req.query.status as string);
-    if (req.query.counterparty_id) params.append('counterparty_id', req.query.counterparty_id as string);
+    for (const k of passthrough) { if (req.query[k]) params.append(k, req.query[k] as string); }
     const url = `${FINANCE_API_BASE()}/invoices${params.toString() ? '?' + params.toString() : ''}`;
     const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    const totalCount = response.headers['x-total-count'];
+    if (totalCount !== undefined) {
+      res.set('X-Total-Count', String(totalCount));
+      res.set('Access-Control-Expose-Headers', 'X-Total-Count');
+    }
     res.json({ data: response.data, message: 'Invoices retrieved', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve invoices', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
@@ -1261,6 +1503,24 @@ financeAccountingRouter.post('/accounting/invoices/extract', upload.single('file
     res.json({ data: response.data, message: 'Invoice data extracted', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: { message: 'Failed to extract invoice data', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/invoices/:id/attach (attach a document to an existing invoice/stub)
+financeAccountingRouter.post('/accounting/invoices/:id/attach', upload.single('file'), asyncHandler(async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: { message: 'No file provided', statusCode: 400, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+    }
+    const { id } = req.params;
+    const formData = new FormData();
+    formData.append('file', req.file.buffer, { filename: req.file.originalname, contentType: req.file.mimetype });
+    const url = `${FINANCE_API_BASE()}/invoices/${id}/attach`;
+    const response = await axios.post(url, formData, { timeout: 60000, headers: { ...formData.getHeaders(), 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' } });
+    res.json({ data: response.data, message: 'Document attached', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    const msg = error.response?.data?.error?.message || error.response?.data?.error || 'Failed to attach document';
+    res.status(error.response?.status || 500).json({ error: { message: msg, statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
   }
 }));
 
@@ -1385,6 +1645,161 @@ financeAccountingRouter.delete('/accounting/approval-rules/:id', asyncHandler(as
     res.json({ data: response.data, message: 'Approval rule deleted', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: { message: 'Failed to delete approval rule', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// ---------------------------------------------------------------------------
+// Economic Events
+// ---------------------------------------------------------------------------
+
+// GET /accounting/economic-events
+financeAccountingRouter.get('/accounting/economic-events', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching economic events from finance API', { query: req.query });
+  try {
+    const url = `${ACCOUNTING_API_BASE()}/economic-events`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.period && { period: req.query.period }),
+        ...(req.query.status && { status: req.query.status }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Economic events retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch economic events', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve economic events',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/economic-events/stage
+financeAccountingRouter.post('/accounting/economic-events/stage', asyncHandler(async (req: any, res: any) => {
+  logger.info('Staging economic events via finance API', { body: req.body });
+  try {
+    const url = `${ACCOUNTING_API_BASE()}/economic-events/stage`;
+    const response = await axios.post(url, req.body, {
+      timeout: 60000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Economic events staged successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to stage economic events', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to stage economic events',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/economic-events/sync
+// Stripe "press sync": stage every month in range (STAGED, not posted) + import payouts.
+financeAccountingRouter.post('/accounting/economic-events/sync', asyncHandler(async (req: any, res: any) => {
+  logger.info('Syncing economic events (stage range + import payouts) via finance API', { body: req.body });
+  try {
+    const url = `${ACCOUNTING_API_BASE()}/economic-events/sync`;
+    const response = await axios.post(url, req.body, {
+      timeout: 120000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Economic events synced successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to sync economic events', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to sync economic events',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/economic-events/project
+financeAccountingRouter.post('/accounting/economic-events/project', asyncHandler(async (req: any, res: any) => {
+  logger.info('Projecting economic events into journal entries via finance API', { body: req.body });
+  try {
+    const url = `${ACCOUNTING_API_BASE()}/economic-events/project`;
+    const response = await axios.post(url, req.body, {
+      timeout: 60000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Economic events projected successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to project economic events', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to project economic events',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// POST /accounting/economic-events/import-payouts
+financeAccountingRouter.post('/accounting/economic-events/import-payouts', asyncHandler(async (req: any, res: any) => {
+  logger.info('Importing payout lines via finance API', { body: req.body });
+  try {
+    const url = `${ACCOUNTING_API_BASE()}/economic-events/import-payouts`;
+    const response = await axios.post(url, req.body, {
+      timeout: 60000,
+      headers: defaultHeaders,
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'Payout lines imported successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to import payout lines', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: error.response?.data?.error || 'Failed to import payout lines',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
   }
 }));
 
