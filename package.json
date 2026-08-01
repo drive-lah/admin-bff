@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "node --max-old-space-size=4096 ./node_modules/.bin/tsc --noEmitOnError false && echo 'Build completed successfully' && ls -la dist/",
+    "build": "npm install --production=false && node --max-old-space-size=4096 ./node_modules/.bin/tsc --noEmitOnError false && echo 'Build completed successfully' && ls -la dist/",
     "start": "node dist/server.js",
     "start:dev": "ts-node src/server.ts",
     "sync-google": "node --max-old-space-size=2048 -r ts-node/register scripts/sync-from-google.ts",

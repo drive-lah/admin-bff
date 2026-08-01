@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'viewer')),
   teams TEXT[] NOT NULL CHECK (teams <@ ARRAY['tech', 'core', 'resolutions', 'c&s', 'host', 'data', 'hr', 'finance', 'founders', 'product', 'marketing', 'fleet ops', 'verification', 'guest', 'flexplus', 'na']::TEXT[]),
-  status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
+  status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),
   region VARCHAR(50) DEFAULT 'global' CHECK (region IN ('singapore', 'australia', 'global')),
   google_workspace_id VARCHAR(255) UNIQUE,
   google_org_unit VARCHAR(255),
@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   last_login_at TIMESTAMP,
   last_google_sync_at TIMESTAMP,
+  deleted_at TIMESTAMP,
   FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL
 );
 ```
@@ -173,7 +174,7 @@ export interface User {
   name: string;
   role: UserRole;
   teams: UserTeam[];  // Changed from team to teams (array)
-  status: 'active' | 'inactive' | 'suspended';
+  status: 'active' | 'suspended' | 'deleted';
   region: UserRegion;
   google_workspace_id?: string;
   google_org_unit?: string;
@@ -191,6 +192,7 @@ export interface User {
   updated_at: string;
   last_login_at?: string;
   last_google_sync_at?: string;
+  deleted_at?: string;  // Timestamp when user was marked as deleted
 }
 ```
 
@@ -392,6 +394,93 @@ export interface AdminUser {
 
 ---
 
+## 11. Google Workspace Sync & Deletion Handling
+
+### Problem Solved
+Users deleted from Google Workspace were remaining in the admin console as active/suspended, causing discrepancies between Google and the admin system.
+
+### Solution: Soft Deletes
+When a user is deleted from Google Workspace:
+1. **Status changed to `deleted`** (soft delete, not hard delete)
+2. **deleted_at timestamp set** to when deletion was detected
+3. **All user data preserved** for audit trail and compliance
+4. **User becomes invisible** in active user queries (status != 'deleted')
+
+### Sync Workflow
+
+#### Step 1: Check for Sync Issues
+```bash
+npm run sync:check
+# Output shows:
+# - Users in Google Workspace but not in database (new users to add)
+# - Users in database but not in Google (users to mark as deleted)
+```
+
+#### Step 2: Run Sync to Apply Changes
+```bash
+npm run sync:google
+# Output shows:
+# - New users inserted
+# - Existing users updated
+# - Deleted users marked with status='deleted' and deleted_at timestamp
+```
+
+#### Step 3: Verify Results
+```bash
+npm run sync:check
+# Should show 0 mismatches (or only new users if they were added since last sync)
+```
+
+### Database Changes
+| Field | Type | Purpose |
+|-------|------|---------|
+| `status` | VARCHAR(50) | Now includes: `active`, `suspended`, `deleted` |
+| `deleted_at` | TIMESTAMP | When user was marked as deleted (compliance audit trail) |
+
+### Status Lifecycle
+
+```
+Google Workspace Active
+         ↓
+    INSERT/UPDATE in DB (status = 'active')
+         ↓
+User deleted from Google
+         ↓
+SYNC detects missing user
+         ↓
+Mark as deleted (status = 'deleted', deleted_at = NOW)
+         ↓
+User never appears in active queries again
+         ↓
+Data retained forever for audit trail
+```
+
+### Querying Users
+
+**Get only active/suspended users (normal queries):**
+```sql
+SELECT * FROM users WHERE status != 'deleted';
+-- or
+SELECT * FROM users WHERE status IN ('active', 'suspended');
+```
+
+**Get all users including deleted:**
+```sql
+SELECT * FROM users;
+```
+
+**Get deleted users for audit:**
+```sql
+SELECT * FROM users WHERE status = 'deleted' ORDER BY deleted_at DESC;
+```
+
+### Benefits
+✅ Audit trail preserved for compliance  
+✅ No data loss or referential integrity issues  
+✅ Historical data available for analysis  
+✅ Can restore users if needed (just change status back to 'active')  
+✅ Clear visibility into who was deleted and when  
+
 ## Summary
 
 ✅ **Users table** now includes HR-relevant fields (address, country, date_of_joining, org_role, manager_id, phone_number)
@@ -402,10 +491,6 @@ export interface AdminUser {
 
 ✅ **Manager hierarchy** supported via manager_id foreign key
 
-✅ **Google Workspace sync** updated with new team mappings
+✅ **Google Workspace sync** updated with new team mappings + **soft deletion handling**
 
-✅ **Permissions system** documented comprehensively
-
-✅ **API validation** updated for all new fields
-
-✅ **Backwards compatibility** maintained for core user operations
+✅ **Deleted users**

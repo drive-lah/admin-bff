@@ -2,7 +2,41 @@ import { db } from './database';
 import { logger } from '../utils/logger';
 import { MODULES } from '../constants/modules';
 
+/**
+ * Database Migrations for Admin BFF
+ * 
+ * Manages database schema creation and updates using idempotent SQL.
+ * All migrations are safe to run multiple times (CREATE IF NOT EXISTS, etc.)
+ * 
+ * Tables Created/Managed:
+ * - users: User registry with soft-delete support
+ *   - Status options: 'active', 'suspended', 'deleted' (CHECK constraint)
+ *   - deleted_at: TIMESTAMP field for soft-delete audit trail
+ * - user_permissions: RBAC permissions per user and module
+ * - admin_user_logs: Audit trail of all admin actions
+ * 
+ * Features:
+ * - Idempotent: Safe to run on each app startup
+ * - Handles schema evolution: adds columns only if they don't exist
+ * - Constraint management: adds constraints if missing
+ * - Trigger management: creates auto-update triggers for updated_at
+ * - Foreign key relationships with CASCADE/RESTRICT policies
+ * 
+ * Soft Delete Support:
+ * - Users marked as 'deleted' are never hard-deleted from the database
+ * - deleted_at timestamp tracks when the soft deletion occurred
+ * - All user data is preserved for audit trail and compliance
+ */
 export class DatabaseMigrations {
+  /**
+   * Runs all database migrations
+   * 
+   * Creates tables, adds columns, creates indexes, and sets up triggers.
+   * All operations are idempotent and safe to run multiple times.
+   * 
+   * @throws Error if migrations fail (logs error and re-throws)
+   * @returns Promise that resolves when all migrations complete
+   */
   public static async runMigrations(): Promise<void> {
     try {
       logger.info('Running database migrations...');
@@ -15,7 +49,7 @@ export class DatabaseMigrations {
           name VARCHAR(255) NOT NULL,
           role VARCHAR(50) NOT NULL,
           teams TEXT[] NOT NULL,
-          status VARCHAR(50) NOT NULL DEFAULT 'active',
+          status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),
           google_workspace_id VARCHAR(255) UNIQUE,
           google_org_unit VARCHAR(255),
           google_groups TEXT,
@@ -26,7 +60,8 @@ export class DatabaseMigrations {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           last_login_at TIMESTAMP,
-          last_google_sync_at TIMESTAMP
+          last_google_sync_at TIMESTAMP,
+          deleted_at TIMESTAMP
         )
       `);
 
@@ -67,6 +102,16 @@ export class DatabaseMigrations {
           -- Add region column with default value
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='region') THEN
             ALTER TABLE users ADD COLUMN region VARCHAR(50) DEFAULT 'global' CHECK (region IN ('singapore', 'australia', 'global'));
+          END IF;
+
+          -- Add deleted_at column for soft deletes
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='deleted_at') THEN
+            ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP;
+          END IF;
+
+          -- Add constraint to status column if it doesn't exist
+          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name='users' AND constraint_name='users_status_check') THEN
+            ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status IN ('active', 'suspended', 'deleted'));
           END IF;
         END $$;
       `);
@@ -173,6 +218,15 @@ export class DatabaseMigrations {
         $$
       `);
 
+      // Grant 'verification' module access to all admin-role users (idempotent)
+      await db.run(`
+        INSERT INTO user_permissions (user_id, module, access_level, granted_by, granted_at)
+        SELECT u.id, 'verification', 'admin', u.id, CURRENT_TIMESTAMP
+        FROM users u
+        WHERE u.role = 'admin'
+        ON CONFLICT (user_id, module) DO NOTHING
+      `);
+
       logger.info('Database migrations completed successfully');
     } catch (error) {
       logger.error('Error running database migrations:', error);
@@ -180,6 +234,27 @@ export class DatabaseMigrations {
     }
   }
 
+  /**
+   * Inserts default/seed data into the database
+   * 
+   * Only runs if the database is empty (no existing users).
+   * Creates an initial admin user and assigns default permissions.
+   * 
+   * Default Admin User:
+   * - Email: admin@drivelah.sg
+   * - Name: System Admin
+   * - Role: admin
+   * - Teams: ['tech']
+   * - Status: active
+   * 
+   * Permissions Granted:
+   * - All modules: users, finance, ai-agents, tech, listings, transactions, 
+   *   resolution, claims, host-management, verification
+   * - Access level: admin (full control)
+   * 
+   * @throws Error if insertion fails (logs error and re-throws)
+   * @returns Promise that resolves when default data is inserted
+   */
   public static async insertDefaultData(): Promise<void> {
     try {
       // Check if we already have users
@@ -208,7 +283,9 @@ export class DatabaseMigrations {
       const adminUser = await db.get<{ id: number }>('SELECT id FROM users WHERE email = $1', ['admin@drivelah.sg']);
 
       if (adminUser) {
-        // Grant all module permissions to the admin (canonical set — src/constants/modules.ts)
+        // Grant all module permissions to the admin (canonical set — src/constants/modules.ts).
+        // Supersedes the old hardcoded list; MODULES already includes 'verification'
+        // (added on main) plus the finance.* split.
         const modules = MODULES;
 
         for (const module of modules) {

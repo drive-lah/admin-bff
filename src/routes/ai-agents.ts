@@ -78,7 +78,11 @@ aiAgentsRouter.put('/:id', asyncHandler(async (req, res) => {
 // GET /api/admin/ai-agents/:id/analytics - Get agent analytics
 aiAgentsRouter.get('/:id/analytics', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const analytics = await aiAgentsClient.getAgentAnalytics(id);
+  
+  // Forward all query parameters to the backend (weeks, market, etc.)
+  const queryParams = new URLSearchParams(req.query as any).toString();
+  
+  const analytics = await aiAgentsClient.getAgentAnalytics(id, queryParams);
   
   const response: APIResponse = {
     data: analytics,

@@ -1,0 +1,71 @@
+name: Validate Documentation
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for code and documentation changes
+        id: changes
+        run: |
+          # Get all changed files
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          
+          # Check if code was changed
+          CODE_CHANGED=$(echo "$CHANGED" | grep -E '^(src/|routes/|app/|lib/|config/|pages/)' | wc -l)
+          
+          # Check if docs were changed
+          DOCS_CHANGED=$(echo "$CHANGED" | grep -E '\.(md|MD)$|documentation/' | wc -l)
+          
+          echo "code_changed=$CODE_CHANGED" >> $GITHUB_OUTPUT
+          echo "docs_changed=$DOCS_CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const codeChanged = parseInt("${{ steps.changes.outputs.code_changed }}") > 0;
+            const docsChanged = parseInt("${{ steps.changes.outputs.docs_changed }}") > 0;
+            
+            let status = "✅ PASS";
+            let details = "";
+            
+            if (!codeChanged) {
+              details = "No code changes detected. Documentation validation skipped.";
+            } else if (docsChanged) {
+              details = "Code changes include documentation updates. ✅";
+            } else {
+              status = "⚠️ REVIEW NEEDED";
+              details = "**Code changes detected but documentation was NOT updated.**\n\n" +
+                "Please add/update documentation files:\n\n" +
+                "**Central Documentation** (in new-monitor-api):\n" +
+                "- `documentation/README_TECHNICAL.md` - Architecture/flow\n" +
+                "- `documentation/API_REFERENCE.md` - Endpoints\n" +
+                "- `documentation/CHANGELOG.md` - Feature history\n" +
+                "- `documentation/DEPLOYMENT.md` - Deployment steps\n" +
+                "- `documentation/PERMISSION_SYSTEM.md` - Permissions\n\n" +
+                "**Local Documentation** (in this repo):\n" +
+                "- `documentation/README.md` or `README.md`\n" +
+                "- `documentation/DEPLOYMENT.md` (if repo-specific)\n";
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📚 Documentation Validation\n\n**Status:** ${status}\n\n${details}`
+            });

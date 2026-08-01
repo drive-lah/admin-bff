@@ -22,6 +22,7 @@ import { financeAccountingRouter } from './routes/finance-accounting';
 import { usersRouter } from './routes/users';
 import { kpisRouter } from './routes/kpis';
 import { logsRouter } from './routes/logs';
+import { verificationRouter } from './routes/verification';
 // import { collectionsRouter } from './routes/collections'; // Temporarily disabled - multer dependency issue
 
 const app = express();
@@ -138,6 +139,9 @@ app.use('/api/admin/users', authMiddleware, requireModuleAccess('user-mgmt', 're
 // Activity Logs module - requires 'user-mgmt' module access (part of user management)
 app.use('/api/admin/logs', authMiddleware, requireModuleAccess('user-mgmt', 'read'), logsRouter);
 
+// Verification module - accessible to all authenticated admin users
+app.use('/api/admin/verifications', authMiddleware, verificationRouter);
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -165,6 +169,7 @@ async function startServer() {
       logger.info(`🚀 Admin BFF Server with User Registry running on port ${PORT}`, {
         environment: config.nodeEnv,
         aiAgentsApiUrl: config.aiAgentsApiUrl,
+        sgCollectionsApiUrl: config.sgCollectionsApiUrl,
         database: 'SQLite (User Registry)',
       });
     });

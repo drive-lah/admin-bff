@@ -16,6 +16,7 @@ export const config = {
   
   // External API URLs
   aiAgentsApiUrl: process.env.AI_AGENTS_API_URL || 'https://new-monitor-api-1.onrender.com',
+  sgCollectionsApiUrl: process.env.SG_COLLECTIONS_API_URL || 'https://collections-api-syx2.onrender.com',
   listingAgentApiUrl: process.env.LISTING_AGENT_API_URL || 'http://localhost:9000',
   financeApiUrl: process.env.FINANCE_API_URL || 'http://localhost:8081',
   usersApiUrl: process.env.USERS_API_URL || '',
@@ -30,6 +31,7 @@ export const config = {
   
   // API Keys and secrets
   internalApiKey: process.env.INTERNAL_API_KEY || 'your-internal-api-key',
+  sgInternalApiKey: process.env.SG_INTERNAL_API_KEY || '',
   
   // Logging
   logLevel: process.env.LOG_LEVEL || 'info',
@@ -45,6 +47,7 @@ export const config = {
 // Validation
 const requiredEnvVars = [
   'AI_AGENTS_API_URL',
+  'SG_COLLECTIONS_API_URL',
   'GOOGLE_CLIENT_ID',
 ];
 
