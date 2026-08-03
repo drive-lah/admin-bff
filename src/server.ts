@@ -26,6 +26,10 @@ import { verificationRouter } from './routes/verification';
 
 const app = express();
 
+// Render terminates TLS at its proxy; without this req.ip is the proxy address and
+// the rate limiter buckets every client together.
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -41,11 +45,13 @@ app.use(helmet({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: config.rateLimitWindowMs,
+  max: config.rateLimitMaxRequests,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Infra probes should not consume a client's budget.
+  skip: (req) => req.path.startsWith('/api/health'),
 });
 app.use(limiter);
 
