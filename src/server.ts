@@ -27,6 +27,10 @@ import { verificationRouter } from './routes/verification';
 
 const app = express();
 
+// Render terminates TLS at its proxy; without this req.ip is the proxy address and
+// the rate limiter buckets every client together.
+app.set('trust proxy', 1);
+
 // CORS configuration - MUST be before rate limiting so preflight OPTIONS get CORS headers
 app.use(cors({
   origin: config.allowedOrigins,
@@ -50,11 +54,14 @@ app.use(helmet({
 
 // Rate limiting (higher limit for local dev)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: config.nodeEnv === 'development' ? 1000 : 100,
+  windowMs: config.rateLimitWindowMs,
+  // Local dev keeps the higher ceiling; prod is tunable via RATE_LIMIT_MAX_REQUESTS.
+  max: config.nodeEnv === 'development' ? 1000 : config.rateLimitMaxRequests,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Infra probes should not consume a client's budget.
+  skip: (req) => req.path.startsWith('/api/health'),
 });
 app.use(limiter);
 
