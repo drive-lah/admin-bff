@@ -194,6 +194,12 @@ export class UserRegistryService {
         updates.push(`region = $${paramIndex++}`);
         params.push(userData.region);
       }
+      // Declaring employee-hood is a USER-MANAGEMENT action (POL-103): setting this
+      // makes the user appear in the HR module (as not-onboarded). HR is downstream.
+      if ((userData as any).is_employee !== undefined) {
+        updates.push(`is_employee = $${paramIndex++}`);
+        params.push((userData as any).is_employee);
+      }
 
       if (updates.length === 0) {
         return await this.getUserById(id);
