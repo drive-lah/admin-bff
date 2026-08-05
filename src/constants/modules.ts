@@ -43,8 +43,10 @@ export const FINANCE_MODULES = [
   'finance.invoices',       // AP: Accounting▸Invoices + Contracts
   'finance.ledger',         // GL core: entities/COA/bank/txns/JEs/events/recon/TB/rules/amort
   'finance.reports',        // Accounting▸Reports + FP&A (read-oriented)
-  'finance.expenses',       // PERSONAL, own-scoped — employee reimbursements
+  'finance.expenses',       // PERSONAL, own-scoped — employee reimbursements + own employee/HR view
   'finance.payroll',        // PERSONAL, own-scoped — salary/CPF/super/income-tax
+  'finance.payouts',        // Wise vendor payouts — EXTREMELY RESTRICTED (admin + maker-checker)
+  'finance.payment_requests', // guest/host payment requests — TEMP bridge till TMS (ops)
 ] as const;
 
 // Retired — kept here only so the M5 contraction step can assert it's fully drained.
