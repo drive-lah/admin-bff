@@ -1887,7 +1887,7 @@ financeAccountingRouter.get('/hr/employees/:id', asyncHandler(async (req: any, r
 financeAccountingRouter.put('/hr/employees/:id', asyncHandler(async (req: any, res: any) => {
   try {
     const url = `${HR_API_BASE()}/employees/${req.params.id}`;
-    const response = await axios.put(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    const response = await axios.put(url, req.body, { timeout: 30000, headers: { ...defaultHeaders, ...actorHeaders(req) } });
     res.json({ data: response.data, message: 'HR employee updated', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to update HR employee', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
@@ -1909,7 +1909,7 @@ financeAccountingRouter.get('/hr/employees/:id/compensation', asyncHandler(async
 financeAccountingRouter.post('/hr/employees/:id/compensation', asyncHandler(async (req: any, res: any) => {
   try {
     const url = `${HR_API_BASE()}/employees/${req.params.id}/compensation`;
-    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: { ...defaultHeaders, ...actorHeaders(req) } });
     res.status(201).json({ data: response.data, message: 'Compensation added', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to add compensation', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
@@ -1921,7 +1921,7 @@ financeAccountingRouter.post('/hr/onboard/bulk', asyncHandler(async (req: any, r
   logger.info('Bulk onboarding employees via HR API');
   try {
     const url = `${HR_API_BASE()}/onboard/bulk`;
-    const response = await axios.post(url, req.body, { timeout: 60000, headers: defaultHeaders });
+    const response = await axios.post(url, req.body, { timeout: 60000, headers: { ...defaultHeaders, ...actorHeaders(req) } });
     res.json({ data: response.data, message: 'Bulk onboarding complete', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     logger.error('Bulk onboarding failed', { error: error.message });
@@ -1938,7 +1938,7 @@ financeAccountingRouter.post('/hr/onboard/:userId', asyncHandler(async (req: any
   logger.info(`Individual onboarding user ${req.params.userId} via HR API`);
   try {
     const url = `${HR_API_BASE()}/onboard/${req.params.userId}`;
-    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: { ...defaultHeaders, ...actorHeaders(req) } });
     res.json({ data: response.data, message: 'Employee onboarded', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     logger.error(`Individual onboarding failed for user ${req.params.userId}`, { error: error.message });
@@ -1953,7 +1953,7 @@ financeAccountingRouter.post('/hr/offboard/:userId', asyncHandler(async (req: an
   logger.info(`Offboarding user ${req.params.userId} via HR API`);
   try {
     const url = `${HR_API_BASE()}/offboard/${req.params.userId}`;
-    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: { ...defaultHeaders, ...actorHeaders(req) } });
     res.json({ data: response.data, message: 'Employee offboarded', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     logger.error(`Offboarding failed for user ${req.params.userId}`, { error: error.message });
