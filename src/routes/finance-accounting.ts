@@ -2069,27 +2069,29 @@ financeAccountingRouter.post('/accounting/payouts/:id/cancel', requireModuleAcce
 }));
 
 // ── Unified payee bank accounts (counterparties + employees) ──────────────────
+// Payee bank accounts are payout-sensitive (Wise mirror + payment routing) — gate the
+// whole surface behind finance.payouts (Gaurav directive 2026-08-06).
 const PAYEE_BANK_BASE = () => `${config.financeApiUrl}/api/finance/payee-bank-accounts`;
-financeAccountingRouter.get('/accounting/payee-bank-accounts', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.get('/accounting/payee-bank-accounts', requireModuleAccess('finance.payouts', 'read'), asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${PAYEE_BANK_BASE()}`, { timeout: 30000, headers: defaultHeaders,
       params: { payee_type: req.query.payee_type, payee_id: req.query.payee_id, entity_id: req.query.entity_id } });
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to list bank accounts'); }
 }));
-financeAccountingRouter.post('/accounting/payee-bank-accounts', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.post('/accounting/payee-bank-accounts', requireModuleAccess('finance.payouts', 'write'), asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.post(`${PAYEE_BANK_BASE()}`, req.body, { timeout: 30000, headers: actorHeaders(req) });
     res.status(201).json({ data: r.data, message: 'Bank account added', timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to add bank account'); }
 }));
-financeAccountingRouter.put('/accounting/payee-bank-accounts/:id', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.put('/accounting/payee-bank-accounts/:id', requireModuleAccess('finance.payouts', 'write'), asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.put(`${PAYEE_BANK_BASE()}/${req.params.id}`, req.body, { timeout: 30000, headers: actorHeaders(req) });
     res.json({ data: r.data, message: 'Bank account updated', timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to update bank account'); }
 }));
-financeAccountingRouter.delete('/accounting/payee-bank-accounts/:id', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.delete('/accounting/payee-bank-accounts/:id', requireModuleAccess('finance.payouts', 'admin'), asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.delete(`${PAYEE_BANK_BASE()}/${req.params.id}`, { timeout: 30000, headers: actorHeaders(req) });
     res.json({ data: r.data, message: 'Bank account deleted', timestamp: new Date().toISOString() } as APIResponse);
