@@ -209,6 +209,10 @@ export class AIAgentsClient {
     }
   }
 
+  async getAgentQueue(id: string): Promise<any> {
+    return this.getWithRetry<any>(this.upstreamFor(id), `/api/monitor/agents/${id}/queue`);
+  }
+
   async checkHealth(): Promise<{ status: string; timestamp: string }> {
     try {
       const response = await this.auClient.get('/api/monitor/health');
