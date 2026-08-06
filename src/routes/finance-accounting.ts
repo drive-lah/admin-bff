@@ -2165,6 +2165,14 @@ financeAccountingRouter.get('/accounting/tasks/count', asyncHandler(async (req: 
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to count tasks'); }
 }));
+// NOTE: define before '/accounting/tasks/:id' so it isn't captured as an :id.
+financeAccountingRouter.get('/accounting/tasks/assignable-users', asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${TASKS_BASE()}/assignable-users`, { timeout: 30000, headers: taskHeaders(req),
+      params: { q: req.query.q } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to list assignable users'); }
+}));
 financeAccountingRouter.get('/accounting/tasks/:id', asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${TASKS_BASE()}/${req.params.id}`, { timeout: 30000, headers: taskHeaders(req) });
@@ -2176,4 +2184,10 @@ financeAccountingRouter.post('/accounting/tasks/:id/act', asyncHandler(async (re
     const r = await axios.post(`${TASKS_BASE()}/${req.params.id}/act`, req.body || {}, { timeout: 30000, headers: taskHeaders(req) });
     res.json({ data: r.data, message: 'Task actioned', timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to action task'); }
+}));
+financeAccountingRouter.post('/accounting/tasks/:id/reassign', asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.post(`${TASKS_BASE()}/${req.params.id}/reassign`, req.body || {}, { timeout: 30000, headers: taskHeaders(req) });
+    res.json({ data: r.data, message: 'Task reassigned', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to reassign task'); }
 }));
