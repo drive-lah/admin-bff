@@ -2140,6 +2140,16 @@ for (const action of ['submit', 'approve', 'reject']) {
 }
 
 // ── My Tasks (company-wide inbox) — own-scoped; forwards caller id, admin flag, roles ──────
+// Host/guest paid-status lookup (POL-110 Requests→Track) — liberal, any authenticated user.
+const HOST_PAYOUTS_BASE = () => `${config.financeApiUrl}/api/finance/host-payouts`;
+financeAccountingRouter.get('/accounting/host-payouts', asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(HOST_PAYOUTS_BASE(), { timeout: 30000, headers: defaultHeaders,
+      params: { q: req.query.q, market: req.query.market, limit: req.query.limit } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to look up host payouts'); }
+}));
+
 const TASKS_BASE = () => `${config.financeApiUrl}/api/finance/tasks`;
 function taskHeaders(req: any) {
   const u = req.user || {};
