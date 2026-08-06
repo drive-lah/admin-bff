@@ -3,7 +3,7 @@ import { UserRegistryService } from './user-registry';
 import { GoogleWorkspaceService } from './google-workspace';
 import { User } from '../types/user';
 import { logger } from '../utils/logger';
-import { AccessLevel } from '../constants/modules';
+import { AccessLevel, isBaseModule, withBaseModules } from '../constants/modules';
 
 export interface JWTPayload {
   userId: number;
@@ -126,6 +126,9 @@ export class AuthService {
     module: string,
     requiredLevel: AccessLevel = 'read'
   ): Promise<boolean> {
+    // Base modules (e.g. finance.payment_requests / Requests) are held by everyone —
+    // short-circuit before the DB so any future Requests endpoint is open to all.
+    if (isBaseModule(module)) return true;
     // Do NOT swallow to `false` — a DB failure must propagate so the middleware
     // returns 500, not a silent 403 lockout. requireModuleAccess has the outer
     // try/catch that turns this into a 500.
@@ -150,7 +153,7 @@ export class AuthService {
   private async generateJWT(user: User): Promise<string> {
     // Fetch user's module access
     const moduleAccess = await this.getUserModuleAccess(user.id);
-    const modules = moduleAccess.map(m => m.module);
+    const modules = withBaseModules(moduleAccess.map(m => m.module));
 
     const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
       userId: user.id,
