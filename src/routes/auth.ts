@@ -7,7 +7,7 @@ import { APIResponse } from '../types/api';
 import { activityLogger } from '../services/activity-logger';
 import { ActionType } from '../types/logs';
 import { config } from '../config/config';
-import { MODULES } from '../constants/modules';
+import { MODULES, withBaseModules } from '../constants/modules';
 
 export const authRouter = Router();
 
@@ -112,7 +112,7 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
 
     // Get user's module access
     const moduleAccess = await authService.getUserModuleAccess(user.id);
-    const modules = moduleAccess.map(m => m.module);
+    const modules = withBaseModules(moduleAccess.map(m => m.module));
 
     // Generate new JWT token
     const newToken = jwt.sign(

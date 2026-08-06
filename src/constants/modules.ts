@@ -60,6 +60,22 @@ export type Module = (typeof MODULES)[number];
 // a meaningful grant.
 export const PERSONAL_MODULES: readonly Module[] = ['finance.expenses', 'finance.payroll'];
 
+// ── Base modules (implicitly held by EVERY authenticated console user) ─────────
+// A base module needs no user_permissions row and no grant — it's part of the
+// keycard everyone gets by logging in. Requests (POL-110) is the team's open
+// raise/track surface, so finance.payment_requests is base: this makes the tab
+// visible to everyone AND (since it's a finance.* module) opens the Finance card
+// for non-finance staff, who then see ONLY Requests. Reversible: drop it here.
+export const BASE_MODULES: readonly Module[] = ['finance.payment_requests'];
+export const isBaseModule = (m: string): boolean =>
+  (BASE_MODULES as readonly string[]).includes(m);
+/** Union a user's granted modules with the always-on base set (order-stable, deduped). */
+export const withBaseModules = (granted: readonly string[]): string[] => {
+  const merged = granted.slice();
+  for (const m of BASE_MODULES) if (!merged.includes(m)) merged.push(m);
+  return merged;
+};
+
 // ── Teams (org chart — a DIFFERENT axis from MODULES) ─────────────────────────
 // Sourced from admin-bff/src/routes/users.ts validation enum.
 export const TEAMS = [
