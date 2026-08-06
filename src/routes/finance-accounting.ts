@@ -1470,6 +1470,43 @@ financeAccountingRouter.delete('/accounting/invoices/matches/:id', asyncHandler(
   }
 }));
 
+// GET /accounting/invoices/pay-queue — approved-payables queue (POL-111). BEFORE /:id.
+financeAccountingRouter.get('/accounting/invoices/pay-queue', asyncHandler(async (req: any, res: any) => {
+  try {
+    const params = new URLSearchParams();
+    if (req.query.entity_id) params.append('entity_id', req.query.entity_id as string);
+    const url = `${FINANCE_API_BASE()}/invoices/pay-queue${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Pay queue retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve pay queue', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/invoices/pay-queue/reorder — drag-reorder (writes priority + logs moves)
+financeAccountingRouter.post('/accounting/invoices/pay-queue/reorder', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/pay-queue/reorder`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Pay queue reordered', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error?.message || 'Failed to reorder pay queue', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/invoices/pay-queue/moves — reorder audit trail
+financeAccountingRouter.get('/accounting/invoices/pay-queue/moves', asyncHandler(async (req: any, res: any) => {
+  try {
+    const params = new URLSearchParams();
+    if (req.query.invoice_id) params.append('invoice_id', req.query.invoice_id as string);
+    const url = `${FINANCE_API_BASE()}/invoices/pay-queue/moves${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Pay queue moves retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve pay queue moves', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // POST /accounting/invoices
 financeAccountingRouter.post('/accounting/invoices', asyncHandler(async (req: any, res: any) => {
   try {
@@ -1500,6 +1537,17 @@ financeAccountingRouter.put('/accounting/invoices/:id', asyncHandler(async (req:
     res.json({ data: response.data, message: 'Invoice updated', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: { message: 'Failed to update invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/invoices/:id/pay — pay an approved invoice by pairing a bank txn (POL-111)
+financeAccountingRouter.post('/accounting/invoices/:id/pay', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${req.params.id}/pay`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Invoice paid', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error?.message || 'Failed to pay invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
   }
 }));
 
