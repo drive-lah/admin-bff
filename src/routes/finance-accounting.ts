@@ -1909,6 +1909,27 @@ financeAccountingRouter.post('/accounting/economic-events/import-payouts', async
 // read or mutate HR data. Mirrors the finance.payouts pattern (BFF is the real gate).
 financeAccountingRouter.use('/hr', requireModuleAccess('hr', 'read'));
 
+// GET /hr/entities — payroll entities for the onboard form. HR-gated so onboarding doesn't
+// require finance.ledger (which the /accounting/* entities endpoint demands). (2026-08-07)
+financeAccountingRouter.get('/hr/entities', asyncHandler(async (req: any, res: any) => {
+  try {
+    const response = await axios.get(`${FINANCE_API_BASE()}/entities`, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Entities retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve entities', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /hr/salary-accounts — chart of accounts for the salary-code picker (HR-gated).
+financeAccountingRouter.get('/hr/salary-accounts', asyncHandler(async (req: any, res: any) => {
+  try {
+    const response = await axios.get(`${FINANCE_API_BASE()}/accounts`, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Accounts retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve salary accounts', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // GET /hr/employees — list HR employees
 financeAccountingRouter.get('/hr/employees', asyncHandler(async (req: any, res: any) => {
   try {
