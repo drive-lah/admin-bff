@@ -576,6 +576,17 @@ financeAccountingRouter.post('/accounting/transactions/:id/reject', asyncHandler
   }
 }));
 
+// POST /accounting/transactions/:id/counterparty — reassign counterparty (not-paired only)
+financeAccountingRouter.post('/accounting/transactions/:id/counterparty', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/transactions/${req.params.id}/counterparty`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Counterparty reassigned', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error?.message || error.response?.data?.error || 'Failed to reassign counterparty', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // POST /accounting/transactions/:id/resolve-needs-review
 financeAccountingRouter.post('/accounting/transactions/:id/resolve-needs-review', asyncHandler(async (req: any, res: any) => {
   logger.info('Resolving needs-review transaction', { id: req.params.id });
