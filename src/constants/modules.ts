@@ -50,6 +50,7 @@ export const FINANCE_MODULES = [
   'finance.payroll',        // PERSONAL, own-scoped — salary/CPF/super/income-tax
   'finance.payouts',        // Wise vendor payouts — EXTREMELY RESTRICTED (admin + maker-checker)
   'finance.payment_requests', // guest/host payment requests — TEMP bridge till TMS (ops)
+  'finance.settings',       // Finance Settings — COA config (approver routing + required anchors); admin-gated
 ] as const;
 
 // Retired — kept here only so the M5 contraction step can assert it's fully drained.
