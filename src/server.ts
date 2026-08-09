@@ -8,7 +8,7 @@ import { config } from './config/config';
 import { logger } from './utils/logger';
 import { errorHandler, asyncHandler } from './middleware/error-handler';
 import { authMiddleware } from './middleware/auth';
-import { authenticateToken, requireModuleAccess, requireUserManagement } from './middleware/auth-enhanced';
+import { authenticateToken, requireModuleAccess, requireUserManagement, requireFinanceRouteAccess } from './middleware/auth-enhanced';
 import { activityLoggingMiddleware } from './middleware/activity-logging';
 import { DatabaseMigrations } from './database/migrations';
 import { logCleanup } from './services/log-cleanup';
@@ -18,6 +18,7 @@ import { aiAgentsRouter } from './routes/ai-agents';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
 import { financeRouter } from './routes/finance';
+import { financeAccountingRouter } from './routes/finance-accounting';
 import { usersRouter } from './routes/users';
 import { kpisRouter } from './routes/kpis';
 import { logsRouter } from './routes/logs';
@@ -26,6 +27,18 @@ import { complianceRouter } from './routes/compliance';
 // import { collectionsRouter } from './routes/collections'; // Temporarily disabled - multer dependency issue
 
 const app = express();
+
+// Render terminates TLS at its proxy; without this req.ip is the proxy address and
+// the rate limiter buckets every client together.
+app.set('trust proxy', 1);
+
+// CORS configuration - MUST be before rate limiting so preflight OPTIONS get CORS headers
+app.use(cors({
+  origin: config.allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Security middleware
 app.use(helmet({
@@ -40,23 +53,18 @@ app.use(helmet({
   crossOriginOpenerPolicy: { policy: "unsafe-none" }, // Allow Google OAuth popups
 }));
 
-// Rate limiting
+// Rate limiting (higher limit for local dev)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  windowMs: config.rateLimitWindowMs,
+  // Local dev keeps the higher ceiling; prod is tunable via RATE_LIMIT_MAX_REQUESTS.
+  max: config.nodeEnv === 'development' ? 1000 : config.rateLimitMaxRequests,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Infra probes should not consume a client's budget.
+  skip: (req) => req.path.startsWith('/api/health'),
 });
 app.use(limiter);
-
-// CORS configuration
-app.use(cors({
-  origin: config.allowedOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
 
 // Body parsing
 app.use(compression());
@@ -123,8 +131,13 @@ app.use('/api/admin/ai-agents', authMiddleware, requireModuleAccess('ai-agents',
 // Temporarily disabled - multer dependency issue
 // app.use('/api/admin/collections', authMiddleware, requireModuleAccess('ai-agents', 'read'), collectionsRouter);
 
-// Finance module - requires 'finance' module access
-app.use('/api/admin/finance', authMiddleware, requireModuleAccess('finance', 'read'), financeRouter);
+// Finance module (M5) — gated per finance.* sub-module by URL path + HTTP method
+// (see requireFinanceRouteAccess). Collections/revenue endpoints → finance.collections.
+app.use('/api/admin/finance', authMiddleware, requireFinanceRouteAccess(), financeRouter);
+
+// Finance Accounting module (M5) — same path-based sub-module gate: ledger /
+// invoices / reports / counterparties / payroll resolved from the route.
+app.use('/api/admin/finance', authMiddleware, requireFinanceRouteAccess(), financeAccountingRouter);
 
 // KPIs endpoint - accessible to users with 'core' or 'host-management' module access
 // This is checked within the kpisRouter based on the team parameter

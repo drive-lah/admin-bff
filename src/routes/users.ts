@@ -46,7 +46,9 @@ const updateUserSchema = Joi.object({
   date_of_joining: Joi.date().iso().allow(null).optional(),
   org_role: Joi.string().allow('').optional(),
   manager_id: Joi.number().integer().positive().allow(null).optional(),
-  phone_number: Joi.string().max(50).allow('').optional()
+  phone_number: Joi.string().max(50).allow('').optional(),
+  // Declare employee-hood from user-management (POL-103) — makes them appear in HR.
+  is_employee: Joi.boolean().optional()
 });
 
 const setPermissionSchema = Joi.object({

@@ -7,6 +7,7 @@ import { APIResponse } from '../types/api';
 import { activityLogger } from '../services/activity-logger';
 import { ActionType } from '../types/logs';
 import { config } from '../config/config';
+import { MODULES, withBaseModules } from '../constants/modules';
 
 export const authRouter = Router();
 
@@ -111,7 +112,7 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
 
     // Get user's module access
     const moduleAccess = await authService.getUserModuleAccess(user.id);
-    const modules = moduleAccess.map(m => m.module);
+    const modules = withBaseModules(moduleAccess.map(m => m.module));
 
     // Generate new JWT token
     const newToken = jwt.sign(
@@ -161,6 +162,53 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
     
     throw error;
   }
+}));
+
+// POST /api/auth/dev-login - Dev-only login bypass (NOT available in production)
+authRouter.post('/dev-login', asyncHandler(async (req, res) => {
+  if (config.nodeEnv === 'production') {
+    throw createError('Dev login not available in production', 403);
+  }
+
+  const { email = 'gauravs@drivelah.sg', name = 'Gaurav (Dev)' } = req.body || {};
+
+  const token = jwt.sign(
+    {
+      userId: 1,
+      email,
+      name,
+      role: 'admin',
+      team: 'finance',
+      modules: [...MODULES],
+    },
+    config.jwtSecret,
+    { expiresIn: config.jwtExpiresIn as any }
+  );
+
+  logger.info('Dev login issued', { email });
+
+  const response: APIResponse = {
+    data: {
+      token,
+      user: {
+        id: '1',
+        email,
+        name,
+        picture: '',
+        role: 'admin',
+        teams: ['finance'],
+        permissions: {
+          modules: [...MODULES],
+          role: 'admin'
+        }
+      },
+      expiresIn: config.jwtExpiresIn
+    },
+    message: 'Dev login successful',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
 }));
 
 // POST /api/auth/logout - Logout (client-side token invalidation)

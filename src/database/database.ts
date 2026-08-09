@@ -13,8 +13,10 @@ export class Database {
       database: process.env.DB_NAME || 'collections-db',
       user: process.env.DB_USER || 'collectionsagent',
       password: process.env.DB_PASSWORD || 'collectionsagent',
-      ssl: {
-        rejectUnauthorized: false // For AWS RDS
+      // For AWS RDS. DB_SSL=disable turns it off for a local Postgres
+      // (e.g. docker run postgres), which does not speak SSL.
+      ssl: process.env.DB_SSL === 'disable' ? undefined : {
+        rejectUnauthorized: false
       },
       max: 10, // Maximum number of clients in the pool
       idleTimeoutMillis: 30000, // How long a client is allowed to remain idle
