@@ -1535,6 +1535,17 @@ financeAccountingRouter.get('/accounting/coa-config', asyncHandler(async (req: a
   }
 }));
 
+// GET /accounting/coa-config/approvers — onboarded employees for the approver dropdown (before /:code)
+financeAccountingRouter.get('/accounting/coa-config/approvers', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/coa-config/approvers`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Approvers retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve approvers', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // GET /accounting/coa-config/:code/history — append-only change trail (newest first)
 financeAccountingRouter.get('/accounting/coa-config/:code/history', asyncHandler(async (req: any, res: any) => {
   try {
