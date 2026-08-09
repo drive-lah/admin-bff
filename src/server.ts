@@ -22,6 +22,7 @@ import { usersRouter } from './routes/users';
 import { kpisRouter } from './routes/kpis';
 import { logsRouter } from './routes/logs';
 import { verificationRouter } from './routes/verification';
+import { complianceRouter } from './routes/compliance';
 // import { collectionsRouter } from './routes/collections'; // Temporarily disabled - multer dependency issue
 
 const app = express();
@@ -137,6 +138,12 @@ app.use('/api/admin/logs', authMiddleware, requireModuleAccess('user-mgmt', 'rea
 
 // Verification module - accessible to all authenticated admin users
 app.use('/api/admin/verifications', authMiddleware, verificationRouter);
+
+// Compliance module (first cut: AFCA). Proxies to compliance-service.
+// requireModuleAccess('compliance') grants admins automatically; non-admins
+// need the 'compliance' module in their permissions (follow-up: grant in the
+// permission registry).
+app.use('/api/admin/compliance', authMiddleware, requireModuleAccess('compliance', 'read'), complianceRouter);
 
 // 404 handler
 app.use('*', (req, res) => {

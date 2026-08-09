@@ -22,7 +22,8 @@ export const config = {
   listingsApiUrl: process.env.LISTINGS_API_URL || '',
   transactionsApiUrl: process.env.TRANSACTIONS_API_URL || '',
   claimsApiUrl: process.env.CLAIMS_API_URL || '',
-  
+  complianceApiUrl: process.env.COMPLIANCE_API_URL || 'http://localhost:8090',
+
   // Authentication
   jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
