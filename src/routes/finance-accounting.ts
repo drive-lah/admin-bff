@@ -1535,6 +1535,20 @@ financeAccountingRouter.get('/accounting/coa-config', asyncHandler(async (req: a
   }
 }));
 
+// GET /accounting/my-requests — the logged-in user's OWN raised items (Track). Scoped to req.user
+// server-side so a user can only see their own; client params are ignored.
+financeAccountingRouter.get('/accounting/my-requests', asyncHandler(async (req: any, res: any) => {
+  try {
+    const who = req.user?.name || req.user?.email || '';
+    const uid = req.user?.id ? `&user_id=${encodeURIComponent(req.user.id)}` : '';
+    const url = `${FINANCE_API_BASE()}/my-requests?who=${encodeURIComponent(who)}${uid}`;
+    const r = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: r.data, message: 'ok', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) {
+    res.status(e.response?.status || 500).json({ error: { message: 'Failed to load your requests', statusCode: e.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // GET /accounting/coa-config/approvers — onboarded employees for the approver dropdown (before /:code)
 financeAccountingRouter.get('/accounting/coa-config/approvers', asyncHandler(async (req: any, res: any) => {
   try {
