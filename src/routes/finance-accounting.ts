@@ -1518,6 +1518,108 @@ financeAccountingRouter.get('/accounting/invoices/pay-queue/moves', asyncHandler
   }
 }));
 
+// ---------------------------------------------------------------------------
+// COA config (AW-2) — the finance-owned per-COA control table (Finance Settings).
+// Read = finance.settings/read (view the grid); writes = finance.settings/admin (maker gate).
+// ---------------------------------------------------------------------------
+financeAccountingRouter.use('/accounting/coa-config', requireModuleAccess('finance.settings', 'read'));
+
+// GET /accounting/coa-config — whole chart of accounts, left-joined to config (blank if unconfigured)
+financeAccountingRouter.get('/accounting/coa-config', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/coa-config`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'COA config retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve COA config', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/coa-config/:code/history — append-only change trail (newest first)
+financeAccountingRouter.get('/accounting/coa-config/:code/history', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/coa-config/${encodeURIComponent(req.params.code)}/history`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'COA config history retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve COA config history', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/coa-config/:code — one row
+financeAccountingRouter.get('/accounting/coa-config/:code', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/coa-config/${encodeURIComponent(req.params.code)}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'COA config row retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve COA config row', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// PUT /accounting/coa-config/:code — upsert editable fields (audited). Admin gate = maker-checker.
+financeAccountingRouter.put('/accounting/coa-config/:code', requireModuleAccess('finance.settings', 'admin'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const body = { ...req.body, changed_by: req.body?.changed_by || req.user?.email };
+    const url = `${FINANCE_API_BASE()}/coa-config/${encodeURIComponent(req.params.code)}`;
+    const response = await axios.put(url, body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'COA config saved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error?.message || 'Failed to save COA config', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// ---------------------------------------------------------------------------
+// Approval chain (AW-6/AW-7) — scoped queue + per-step decisions.
+// Read (queue/log/next) = finance.invoices/read; decide = finance.invoices/write.
+// ---------------------------------------------------------------------------
+
+// GET /accounting/approvals/queue?approver=<id> — invoices whose NEXT step is this approver's
+financeAccountingRouter.get('/accounting/approvals/queue', requireModuleAccess('finance.invoices', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const approver = (req.query.approver as string) || req.user?.email || '';
+    const url = `${FINANCE_API_BASE()}/approvals/queue?approver=${encodeURIComponent(approver)}`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Approval queue retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve approval queue', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/approvals/:id/log — append-only sign-off trail
+financeAccountingRouter.get('/accounting/approvals/:id/log', requireModuleAccess('finance.invoices', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/approvals/${encodeURIComponent(req.params.id)}/log`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Approval log retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve approval log', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// GET /accounting/approvals/:id/next — chain state (which step/approver is next)
+financeAccountingRouter.get('/accounting/approvals/:id/next', requireModuleAccess('finance.invoices', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/approvals/${encodeURIComponent(req.params.id)}/next`;
+    const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Approval state retrieved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'Failed to retrieve approval state', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
+// POST /accounting/approvals/:id/decide — record a step decision (approve|reject|return)
+financeAccountingRouter.post('/accounting/approvals/:id/decide', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const body = { ...req.body, approver: req.body?.approver || req.user?.email };
+    const url = `${FINANCE_API_BASE()}/approvals/${encodeURIComponent(req.params.id)}/decide`;
+    const response = await axios.post(url, body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Decision recorded', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error?.message || error.response?.data?.error || 'Failed to record decision', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // POST /accounting/invoices
 financeAccountingRouter.post('/accounting/invoices', asyncHandler(async (req: any, res: any) => {
   try {
