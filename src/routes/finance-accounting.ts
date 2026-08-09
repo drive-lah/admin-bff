@@ -1631,6 +1631,26 @@ financeAccountingRouter.post('/accounting/approvals/:id/decide', requireModuleAc
   }
 }));
 
+// GET/PUT /accounting/invoices/:id/metadata — supporting anchors (trip id / ticket number) captured at ratify
+financeAccountingRouter.get('/accounting/invoices/:id/metadata', asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${encodeURIComponent(req.params.id)}/metadata`;
+    const r = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: r.data, message: 'ok', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) {
+    res.status(e.response?.status || 500).json({ error: { message: 'Failed to get metadata', statusCode: e.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+financeAccountingRouter.put('/accounting/invoices/:id/metadata', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${encodeURIComponent(req.params.id)}/metadata`;
+    const r = await axios.put(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: r.data, message: 'saved', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) {
+    res.status(e.response?.status || 500).json({ error: { message: 'Failed to save metadata', statusCode: e.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // POST /accounting/invoices/raise — Flow 2: raise a vendor invoice (gate anchors → draft → submit)
 financeAccountingRouter.post('/accounting/invoices/raise', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
   try {
