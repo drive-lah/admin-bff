@@ -2404,15 +2404,26 @@ function taskHeaders(req: any) {
 financeAccountingRouter.get('/accounting/tasks', asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${TASKS_BASE()}`, { timeout: 30000, headers: taskHeaders(req),
-      params: { status: req.query.status } });
+      params: { status: req.query.status, scope: req.query.scope } });
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to list tasks'); }
 }));
 financeAccountingRouter.get('/accounting/tasks/count', asyncHandler(async (req: any, res: any) => {
   try {
-    const r = await axios.get(`${TASKS_BASE()}/count`, { timeout: 30000, headers: taskHeaders(req) });
+    const r = await axios.get(`${TASKS_BASE()}/count`, { timeout: 30000, headers: taskHeaders(req),
+      params: { scope: req.query.scope } });
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to count tasks'); }
+}));
+
+// Real-time anchor resolution (trip code / ticket numbers) for the ratify form.
+financeAccountingRouter.get('/accounting/enrichment/validate', asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${config.financeApiUrl}/api/finance/enrichment/validate`, {
+      timeout: 30000, headers: defaultHeaders,
+      params: { trip_id: req.query.trip_id, ticket_ids: req.query.ticket_ids } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to resolve anchors'); }
 }));
 // NOTE: define before '/accounting/tasks/:id' so it isn't captured as an :id.
 financeAccountingRouter.get('/accounting/tasks/assignable-users', asyncHandler(async (req: any, res: any) => {
