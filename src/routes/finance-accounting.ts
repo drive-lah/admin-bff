@@ -1631,6 +1631,18 @@ financeAccountingRouter.post('/accounting/approvals/:id/decide', requireModuleAc
   }
 }));
 
+// POST /accounting/invoices/raise — Flow 2: raise a vendor invoice (gate anchors → draft → submit)
+financeAccountingRouter.post('/accounting/invoices/raise', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const body = { ...req.body, uploaded_by: req.body?.uploaded_by || req.user?.email };
+    const url = `${FINANCE_API_BASE()}/invoices/raise`;
+    const response = await axios.post(url, body, { timeout: 30000, headers: defaultHeaders });
+    res.status(201).json({ data: response.data, message: 'Invoice raised', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error?.message || error.response?.data?.error || 'Failed to raise invoice', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // POST /accounting/invoices
 financeAccountingRouter.post('/accounting/invoices', asyncHandler(async (req: any, res: any) => {
   try {
