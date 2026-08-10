@@ -5,6 +5,7 @@ import { CreateUserRequest, UpdateUserRequest } from '../types/user';
 import { APIResponse } from '../types/api';
 import { logger } from '../utils/logger';
 import Joi from 'joi';
+import { MODULES, ACCESS_LEVELS } from '../constants/modules';
 
 export const usersRouter = Router();
 const userRegistry = new UserRegistryService();
@@ -51,23 +52,11 @@ const updateUserSchema = Joi.object({
   is_employee: Joi.boolean().optional()
 });
 
+// Validate against the canonical module + access-level lists so this never
+// drifts from constants/modules.ts (which is the single source of truth).
 const setPermissionSchema = Joi.object({
-  module: Joi.string().valid(
-    'core',
-    'users',
-    'finance',
-    'listings',
-    'transactions',
-    'resolution',
-    'claims',
-    'host-management',
-    'ai-agents',
-    'tech',
-    'user-mgmt',
-    'flexplus',
-    'verification'
-  ).required(),
-  access_level: Joi.string().valid('read', 'write', 'admin').required()
+  module: Joi.string().valid(...MODULES).required(),
+  access_level: Joi.string().valid(...ACCESS_LEVELS).required()
 });
 
 // GET /api/admin/users - Get all users
