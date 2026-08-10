@@ -14,14 +14,21 @@ const client = axios.create({ baseURL: config.complianceApiUrl, timeout: 15_000 
 complianceRouter.use(asyncHandler(async (req, res) => {
   const url = req.originalUrl.replace(/^\/api\/admin\/compliance/, '') || '/';
   try {
+    // Fetch as raw bytes and pass through the upstream content-type, so binary
+    // responses (PDFs, images from /documents/:id/content) are not mangled by
+    // JSON re-encoding. JSON endpoints round-trip unchanged.
     const upstream = await client.request({
       method: req.method as any,
       url,
       data: ['GET', 'HEAD'].includes(req.method) ? undefined : req.body,
-      // query string is already part of originalUrl
+      responseType: 'arraybuffer',
       validateStatus: () => true,
     });
-    res.status(upstream.status).json(upstream.data);
+    const contentType = upstream.headers['content-type'];
+    if (contentType) res.setHeader('Content-Type', contentType);
+    const disposition = upstream.headers['content-disposition'];
+    if (disposition) res.setHeader('Content-Disposition', disposition);
+    res.status(upstream.status).send(Buffer.from(upstream.data));
   } catch (err: any) {
     logger.error('compliance proxy error', { message: err.message, url });
     res.status(502).json({ error: 'compliance-service unreachable', detail: err.message });
