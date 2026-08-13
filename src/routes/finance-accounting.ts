@@ -992,6 +992,41 @@ financeAccountingRouter.get('/accounting/reports/pnl', asyncHandler(async (req: 
   }
 }));
 
+// GET /accounting/reports/bas
+financeAccountingRouter.get('/accounting/reports/bas', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching BAS report from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/reports/bas`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.date_from && { date_from: req.query.date_from }),
+        ...(req.query.date_to && { date_to: req.query.date_to }),
+        ...(req.query.basis && { basis: req.query.basis }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'BAS report retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch BAS report', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve BAS report',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
 // GET /accounting/reports/balance-sheet
 financeAccountingRouter.get('/accounting/reports/balance-sheet', asyncHandler(async (req: any, res: any) => {
   logger.info('Fetching balance sheet report from finance API', { query: req.query });
