@@ -992,6 +992,77 @@ financeAccountingRouter.get('/accounting/reports/pnl', asyncHandler(async (req: 
   }
 }));
 
+// GET /accounting/reports/bas
+financeAccountingRouter.get('/accounting/reports/bas', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching BAS report from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/reports/bas`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.date_from && { date_from: req.query.date_from }),
+        ...(req.query.date_to && { date_to: req.query.date_to }),
+        ...(req.query.basis && { basis: req.query.basis }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'BAS report retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch BAS report', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve BAS report',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
+// GET /accounting/reports/bas/detail — per-transaction detail behind one BAS box
+financeAccountingRouter.get('/accounting/reports/bas/detail', asyncHandler(async (req: any, res: any) => {
+  logger.info('Fetching BAS detail from finance API', { query: req.query });
+  try {
+    const url = `${FINANCE_API_BASE()}/reports/bas/detail`;
+    const response = await axios.get(url, {
+      timeout: 30000,
+      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      params: {
+        ...(req.query.entity_id && { entity_id: req.query.entity_id }),
+        ...(req.query.date_from && { date_from: req.query.date_from }),
+        ...(req.query.date_to && { date_to: req.query.date_to }),
+        ...(req.query.basis && { basis: req.query.basis }),
+        ...(req.query.box && { box: req.query.box }),
+      },
+    });
+    const apiResponse: APIResponse = {
+      data: response.data,
+      message: 'BAS detail retrieved successfully',
+      timestamp: new Date().toISOString(),
+    };
+    res.json(apiResponse);
+  } catch (error: any) {
+    logger.error('Failed to fetch BAS detail', { error: error.message });
+    res.status(error.response?.status || 500).json({
+      error: {
+        message: 'Failed to retrieve BAS detail',
+        statusCode: error.response?.status || 500,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+        method: req.method,
+      },
+    });
+  }
+}));
+
 // GET /accounting/reports/balance-sheet
 financeAccountingRouter.get('/accounting/reports/balance-sheet', asyncHandler(async (req: any, res: any) => {
   logger.info('Fetching balance sheet report from finance API', { query: req.query });
@@ -2420,8 +2491,8 @@ financeAccountingRouter.get('/accounting/tasks/count', asyncHandler(async (req: 
 financeAccountingRouter.get('/accounting/enrichment/validate', asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${config.financeApiUrl}/api/finance/enrichment/validate`, {
-      timeout: 30000, headers: defaultHeaders,
-      params: { trip_id: req.query.trip_id, ticket_ids: req.query.ticket_ids } });
+      timeout: 60000, headers: defaultHeaders,
+      params: { trip_id: req.query.trip_id, ticket_ids: req.query.ticket_ids, rego: req.query.rego } });
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to resolve anchors'); }
 }));
