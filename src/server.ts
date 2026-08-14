@@ -23,9 +23,14 @@ import { usersRouter } from './routes/users';
 import { kpisRouter } from './routes/kpis';
 import { logsRouter } from './routes/logs';
 import { verificationRouter } from './routes/verification';
+import { complianceRouter } from './routes/compliance';
 // import { collectionsRouter } from './routes/collections'; // Temporarily disabled - multer dependency issue
 
 const app = express();
+
+// Render terminates TLS at its proxy; without this req.ip is the proxy address and
+// the rate limiter buckets every client together.
+app.set('trust proxy', 1);
 
 // CORS configuration - MUST be before rate limiting so preflight OPTIONS get CORS headers
 app.use(cors({
@@ -50,11 +55,14 @@ app.use(helmet({
 
 // Rate limiting (higher limit for local dev)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: config.nodeEnv === 'development' ? 1000 : 100,
+  windowMs: config.rateLimitWindowMs,
+  // Local dev keeps the higher ceiling; prod is tunable via RATE_LIMIT_MAX_REQUESTS.
+  max: config.nodeEnv === 'development' ? 1000 : config.rateLimitMaxRequests,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Infra probes should not consume a client's budget.
+  skip: (req) => req.path.startsWith('/api/health'),
 });
 app.use(limiter);
 
@@ -143,6 +151,12 @@ app.use('/api/admin/logs', authMiddleware, requireModuleAccess('user-mgmt', 'rea
 
 // Verification module - accessible to all authenticated admin users
 app.use('/api/admin/verifications', authMiddleware, verificationRouter);
+
+// Compliance module (first cut: AFCA). Proxies to compliance-service.
+// requireModuleAccess('compliance') grants admins automatically; non-admins
+// need the 'compliance' module in their permissions (follow-up: grant in the
+// permission registry).
+app.use('/api/admin/compliance', authMiddleware, requireModuleAccess('compliance', 'read'), complianceRouter);
 
 // 404 handler
 app.use('*', (req, res) => {

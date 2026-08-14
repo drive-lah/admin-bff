@@ -35,6 +35,7 @@ export const KEPT_MODULES = [
   'hr',              // HR console (onboard/offboard/employees). Distinct AXIS from the 'hr' TEAM
                      // (org chart) — same string, different check: module = user_permissions row,
                      // team = users.team. Grants live under 'hr'; 0 under 'human-resources'.
+  'compliance',      // Compliance console (AFCA/regulatory/dispute matters) — proxies to compliance-service
 ] as const;
 
 // ── Finance sub-modules (replace the retired `finance` mega-module) ────────────

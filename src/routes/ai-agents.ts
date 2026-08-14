@@ -147,6 +147,22 @@ aiAgentsRouter.get('/:id/logs', asyncHandler(async (req, res) => {
   res.json(response);
 }));
 
+// GET /api/admin/ai-agents/:id/queue - Get human-review queue
+// Upstream body ({ items: [...] }) is passed through unchanged inside the standard envelope.
+aiAgentsRouter.get('/:id/queue', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const queue = await aiAgentsClient.getAgentQueue(id);
+
+  const response: APIResponse = {
+    data: queue,
+    message: 'Agent queue retrieved successfully',
+    timestamp: new Date().toISOString(),
+  };
+
+  res.json(response);
+}));
+
 // GET /api/admin/ai-agents/:id/metrics - Get agent metrics (alias for analytics)
 aiAgentsRouter.get('/:id/metrics', asyncHandler(async (req, res) => {
   const { id } = req.params;
