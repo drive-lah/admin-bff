@@ -2429,6 +2429,42 @@ financeAccountingRouter.delete('/accounting/payee-bank-accounts/:id', requireMod
   } catch (e: any) { payoutError(res, req, e, 'Failed to delete bank account'); }
 }));
 
+// ── Payout recipients (PM-6, POL-127): counterparty bank accounts + per-channel Wise registrations.
+// Our system is master; add pushes to Wise, edit supersedes, delete deactivates — all audited server-side.
+const PAYOUT_RECIP_BASE = () => `${config.financeApiUrl}/api/finance/payout-recipients`;
+financeAccountingRouter.get('/accounting/payout-recipients/channels', requireModuleAccess('finance.payouts', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${PAYOUT_RECIP_BASE()}/channels`, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to list payment channels'); }
+}));
+financeAccountingRouter.get('/accounting/payout-recipients', requireModuleAccess('finance.payouts', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${PAYOUT_RECIP_BASE()}`, { timeout: 30000, headers: defaultHeaders,
+      params: { counterparty_id: req.query.counterparty_id } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to list bank accounts'); }
+}));
+financeAccountingRouter.post('/accounting/payout-recipients', requireModuleAccess('finance.payouts', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.post(`${PAYOUT_RECIP_BASE()}`, req.body, { timeout: 30000, headers: actorHeaders(req) });
+    res.status(201).json({ data: r.data, message: 'Bank account registered', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to register bank account'); }
+}));
+financeAccountingRouter.put('/accounting/payout-recipients/:id', requireModuleAccess('finance.payouts', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.put(`${PAYOUT_RECIP_BASE()}/${req.params.id}`, req.body, { timeout: 30000, headers: actorHeaders(req) });
+    res.json({ data: r.data, message: 'Bank account updated (recipient superseded)', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to update bank account'); }
+}));
+financeAccountingRouter.delete('/accounting/payout-recipients/:id', requireModuleAccess('finance.payouts', 'admin'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.delete(`${PAYOUT_RECIP_BASE()}/${req.params.id}`, { timeout: 30000, headers: actorHeaders(req),
+      params: { delete_in_wise: req.query.delete_in_wise } });
+    res.json({ data: r.data, message: 'Bank account deactivated', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to deactivate bank account'); }
+}));
+
 // ── Employee Claims (#5/#6) — own-scoped; forwards caller identity + admin flag ──────────
 const CLAIMS_BASE = () => `${config.financeApiUrl}/api/finance/claims`;
 function claimHeaders(req: any) {
