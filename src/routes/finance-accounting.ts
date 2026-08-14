@@ -999,7 +999,7 @@ financeAccountingRouter.get('/accounting/reports/bas', asyncHandler(async (req: 
     const url = `${FINANCE_API_BASE()}/reports/bas`;
     const response = await axios.get(url, {
       timeout: 30000,
-      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      headers: defaultHeaders,  // PR-13: shared headers (no auth/trace header exists to drop)
       params: {
         ...(req.query.entity_id && { entity_id: req.query.entity_id }),
         ...(req.query.date_from && { date_from: req.query.date_from }),
@@ -1034,7 +1034,7 @@ financeAccountingRouter.get('/accounting/reports/bas/detail', asyncHandler(async
     const url = `${FINANCE_API_BASE()}/reports/bas/detail`;
     const response = await axios.get(url, {
       timeout: 30000,
-      headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' },
+      headers: defaultHeaders,  // PR-13: shared headers (no auth/trace header exists to drop)
       params: {
         ...(req.query.entity_id && { entity_id: req.query.entity_id }),
         ...(req.query.date_from && { date_from: req.query.date_from }),
@@ -1607,6 +1607,7 @@ financeAccountingRouter.get('/accounting/coa-config', asyncHandler(async (req: a
 }));
 
 // GET /accounting/my-requests — the logged-in user's OWN raised items (Track). Scoped to req.user
+// PR-9 ruling: any authenticated finance user may call this — the self-scoping IS the gate.
 // server-side so a user can only see their own; client params are ignored.
 financeAccountingRouter.get('/accounting/my-requests', asyncHandler(async (req: any, res: any) => {
   try {
@@ -1673,7 +1674,10 @@ financeAccountingRouter.put('/accounting/coa-config/:code', requireModuleAccess(
 // GET /accounting/approvals/queue?approver=<id> — invoices whose NEXT step is this approver's
 financeAccountingRouter.get('/accounting/approvals/queue', requireModuleAccess('finance.invoices', 'read'), asyncHandler(async (req: any, res: any) => {
   try {
-    const approver = (req.query.approver as string) || req.user?.email || '';
+    // PR-3: non-admins may ONLY see their own queue — a caller-supplied ?approver is honoured
+    // for admins alone; everyone else is pinned to their authenticated identity.
+    const isAdmin = req.user?.permissions?.role === 'admin';
+    const approver = (isAdmin && (req.query.approver as string)) || req.user?.email || '';
     const url = `${FINANCE_API_BASE()}/approvals/queue?approver=${encodeURIComponent(approver)}`;
     const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
     res.json({ data: response.data, message: 'Approval queue retrieved', timestamp: new Date().toISOString() } as APIResponse);
@@ -2488,7 +2492,8 @@ financeAccountingRouter.get('/accounting/tasks/count', asyncHandler(async (req: 
 }));
 
 // Real-time anchor resolution (trip code / ticket numbers) for the ratify form.
-financeAccountingRouter.get('/accounting/enrichment/validate', asyncHandler(async (req: any, res: any) => {
+// PR-9: validate is part of the invoice-raise flow -> gate on finance.invoices/read (was un-gated).
+financeAccountingRouter.get('/accounting/enrichment/validate', requireModuleAccess('finance.invoices', 'read'), asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${config.financeApiUrl}/api/finance/enrichment/validate`, {
       timeout: 60000, headers: defaultHeaders,
