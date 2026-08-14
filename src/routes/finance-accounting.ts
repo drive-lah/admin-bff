@@ -993,7 +993,7 @@ financeAccountingRouter.get('/accounting/reports/pnl', asyncHandler(async (req: 
 }));
 
 // GET /accounting/reports/bas
-financeAccountingRouter.get('/accounting/reports/bas', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.get('/accounting/reports/bas', requireModuleAccess('finance.ledger', 'read'), asyncHandler(async (req: any, res: any) => {
   logger.info('Fetching BAS report from finance API', { query: req.query });
   try {
     const url = `${FINANCE_API_BASE()}/reports/bas`;
@@ -1028,7 +1028,7 @@ financeAccountingRouter.get('/accounting/reports/bas', asyncHandler(async (req: 
 }));
 
 // GET /accounting/reports/bas/detail — per-transaction detail behind one BAS box
-financeAccountingRouter.get('/accounting/reports/bas/detail', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.get('/accounting/reports/bas/detail', requireModuleAccess('finance.ledger', 'read'), asyncHandler(async (req: any, res: any) => {
   logger.info('Fetching BAS detail from finance API', { query: req.query });
   try {
     const url = `${FINANCE_API_BASE()}/reports/bas/detail`;
@@ -1611,7 +1611,7 @@ financeAccountingRouter.get('/accounting/coa-config', asyncHandler(async (req: a
 // server-side so a user can only see their own; client params are ignored.
 financeAccountingRouter.get('/accounting/my-requests', asyncHandler(async (req: any, res: any) => {
   try {
-    const who = req.user?.name || req.user?.email || '';
+    const who = req.user?.email || '';  // B6: email is the unique identity key — display names collide
     const uid = req.user?.id ? `&user_id=${encodeURIComponent(req.user.id)}` : '';
     const url = `${FINANCE_API_BASE()}/my-requests?who=${encodeURIComponent(who)}${uid}`;
     const r = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
@@ -1621,7 +1621,8 @@ financeAccountingRouter.get('/accounting/my-requests', asyncHandler(async (req: 
   }
 }));
 
-// GET /accounting/coa-config/approvers — onboarded employees for the approver dropdown (before /:code)
+// GET /accounting/coa-config/approvers — onboarded employees for the approver dropdown (before /:code).
+// NOTE: auth comes from the router.use('/accounting/coa-config', …) prefix guard above — keep this route under that prefix.
 financeAccountingRouter.get('/accounting/coa-config/approvers', asyncHandler(async (req: any, res: any) => {
   try {
     const url = `${FINANCE_API_BASE()}/coa-config/approvers`;
@@ -1657,7 +1658,7 @@ financeAccountingRouter.get('/accounting/coa-config/:code', asyncHandler(async (
 // PUT /accounting/coa-config/:code — upsert editable fields (audited). Admin gate = maker-checker.
 financeAccountingRouter.put('/accounting/coa-config/:code', requireModuleAccess('finance.settings', 'admin'), asyncHandler(async (req: any, res: any) => {
   try {
-    const body = { ...req.body, changed_by: req.body?.changed_by || req.user?.email };
+    const body = { ...req.body, changed_by: req.user?.email };  // B2: audit identity pinned to the authenticated user
     const url = `${FINANCE_API_BASE()}/coa-config/${encodeURIComponent(req.params.code)}`;
     const response = await axios.put(url, body, { timeout: 30000, headers: defaultHeaders });
     res.json({ data: response.data, message: 'COA config saved', timestamp: new Date().toISOString() } as APIResponse);
@@ -1711,7 +1712,7 @@ financeAccountingRouter.get('/accounting/approvals/:id/next', requireModuleAcces
 // POST /accounting/approvals/:id/decide — record a step decision (approve|reject|return)
 financeAccountingRouter.post('/accounting/approvals/:id/decide', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
   try {
-    const body = { ...req.body, approver: req.body?.approver || req.user?.email };
+    const body = { ...req.body, approver: req.user?.email };  // B1: approver identity pinned to the authenticated user
     const url = `${FINANCE_API_BASE()}/approvals/${encodeURIComponent(req.params.id)}/decide`;
     const response = await axios.post(url, body, { timeout: 30000, headers: defaultHeaders });
     res.json({ data: response.data, message: 'Decision recorded', timestamp: new Date().toISOString() } as APIResponse);
@@ -1721,7 +1722,7 @@ financeAccountingRouter.post('/accounting/approvals/:id/decide', requireModuleAc
 }));
 
 // GET/PUT /accounting/invoices/:id/metadata — supporting anchors (trip id / ticket number) captured at ratify
-financeAccountingRouter.get('/accounting/invoices/:id/metadata', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.get('/accounting/invoices/:id/metadata', requireModuleAccess('finance.invoices', 'read'), asyncHandler(async (req: any, res: any) => {
   try {
     const url = `${FINANCE_API_BASE()}/invoices/${encodeURIComponent(req.params.id)}/metadata`;
     const r = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
@@ -1743,7 +1744,7 @@ financeAccountingRouter.put('/accounting/invoices/:id/metadata', requireModuleAc
 // POST /accounting/invoices/raise — Flow 2: raise a vendor invoice (gate anchors → draft → submit)
 financeAccountingRouter.post('/accounting/invoices/raise', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
   try {
-    const body = { ...req.body, uploaded_by: req.body?.uploaded_by || req.user?.email };
+    const body = { ...req.body, uploaded_by: req.user?.email };  // B3: uploader identity pinned to the authenticated user
     const url = `${FINANCE_API_BASE()}/invoices/raise`;
     const response = await axios.post(url, body, { timeout: 30000, headers: defaultHeaders });
     res.status(201).json({ data: response.data, message: 'Invoice raised', timestamp: new Date().toISOString() } as APIResponse);
@@ -2476,17 +2477,25 @@ function taskHeaders(req: any) {
   };
 }
 // Any authenticated finance user can have a task inbox; finance-api enforces own-scoping.
+// B8: scope is allowlisted — 'all' is admin-only; anything else collapses to own-scope.
+function taskScope(req: any): string | undefined {
+  const s = req.query.scope as string | undefined
+  if (!s) return undefined
+  const isAdmin = req.user?.permissions?.role === 'admin'
+  return s === 'all' ? (isAdmin ? 'all' : undefined) : (['own'].includes(s) ? s : undefined)
+}
+
 financeAccountingRouter.get('/accounting/tasks', asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${TASKS_BASE()}`, { timeout: 30000, headers: taskHeaders(req),
-      params: { status: req.query.status, scope: req.query.scope } });
+      params: { status: req.query.status, scope: taskScope(req) } });
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to list tasks'); }
 }));
 financeAccountingRouter.get('/accounting/tasks/count', asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${TASKS_BASE()}/count`, { timeout: 30000, headers: taskHeaders(req),
-      params: { scope: req.query.scope } });
+      params: { scope: taskScope(req) } });
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to count tasks'); }
 }));
