@@ -2373,6 +2373,22 @@ financeAccountingRouter.get('/accounting/payouts/payable-invoices', asyncHandler
   } catch (e: any) { payoutError(res, req, e, 'Failed to load payable invoices'); }
 }));
 
+// POL-139 cat 4: approved employee claims awaiting reimbursement (finance payment queue). Registered
+// BEFORE '/accounting/payouts/:id' so 'claim-payables' isn't captured as an :id.
+financeAccountingRouter.get('/accounting/payouts/claim-payables', asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${PAYOUTS_BASE()}/claim-payables`, {
+      timeout: 30000, headers: defaultHeaders, params: { entity_id: req.query.entity_id } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to load claim payables'); }
+}));
+financeAccountingRouter.post('/accounting/payouts/claim', requireModuleAccess('finance.payouts', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.post(`${PAYOUTS_BASE()}/claim`, req.body, { timeout: 60000, headers: actorHeaders(req) });
+    res.status(201).json({ data: r.data, message: 'Claim reimbursement raised', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to raise claim reimbursement'); }
+}));
+
 financeAccountingRouter.get('/accounting/payouts', asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${PAYOUTS_BASE()}`, {
