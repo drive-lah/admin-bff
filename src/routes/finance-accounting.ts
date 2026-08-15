@@ -2214,6 +2214,36 @@ financeAccountingRouter.get('/hr/employees', asyncHandler(async (req: any, res: 
   }
 }));
 
+// ── Payroll runs (PR-1..6): list/detail/items/create/adjust/approval/fan-out. All under the /hr gate. ──
+const pr = (p: string) => `${HR_API_BASE()}/payroll-runs${p}`;
+const prErr = (res: any, req: any, e: any, m: string) => res.status(e.response?.status || 500).json({ error: { message: e.response?.data?.error || m, statusCode: e.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+financeAccountingRouter.get('/hr/payroll-runs', asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.get(pr(''), { timeout: 30000, headers: defaultHeaders, params: req.query }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to list payroll runs'); }
+}));
+financeAccountingRouter.post('/hr/payroll-runs', asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.post(pr(''), req.body, { timeout: 60000, headers: actorHeaders(req) }); res.status(201).json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to create payroll run'); }
+}));
+financeAccountingRouter.get('/hr/payroll-runs/:id/items', asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.get(pr(`/${req.params.id}/items`), { timeout: 30000, headers: defaultHeaders }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to load payroll items'); }
+}));
+financeAccountingRouter.get('/hr/payroll-runs/:id/approval-view', asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.get(pr(`/${req.params.id}/approval-view`), { timeout: 30000, headers: defaultHeaders }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to load approval view'); }
+}));
+financeAccountingRouter.post('/hr/payroll-runs/:id/lines/:item/adjust', asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.post(pr(`/${req.params.id}/lines/${req.params.item}/adjust`), req.body, { timeout: 30000, headers: actorHeaders(req) }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to adjust line'); }
+}));
+for (const action of ['submit-for-approval', 'approve-group', 'fan-out']) {
+  financeAccountingRouter.post(`/hr/payroll-runs/:id/${action}`, asyncHandler(async (req: any, res: any) => {
+    try { const r = await axios.post(pr(`/${req.params.id}/${action}`), req.body || {}, { timeout: 60000, headers: actorHeaders(req) }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+    catch (e: any) { prErr(res, req, e, `Failed: ${action}`); }
+  }));
+}
+
 // GET /hr/employees/:id — get single HR employee
 financeAccountingRouter.get('/hr/employees/:id', asyncHandler(async (req: any, res: any) => {
   try {
