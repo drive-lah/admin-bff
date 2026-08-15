@@ -1745,13 +1745,14 @@ financeAccountingRouter.put('/accounting/invoices/:id/metadata', requireModuleAc
 // txn JE, book the functional bill, payment via create_ap_payment_entries (fx + GST + auto-FX).
 financeAccountingRouter.post('/accounting/invoices/:id/post-pairing', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
   try {
-    const url = `${config.financeApiUrl}/api/finance/invoices/${encodeURIComponent(req.params.id)}/post-pairing`;
+    const url = `${FINANCE_API_BASE()}/invoices/${encodeURIComponent(req.params.id)}/post-pairing`;
     const r = await axios.post(url, { posted_by: req.user?.email }, {
       timeout: 60000, headers: { ...defaultHeaders, 'X-User-Email': req.user?.email || '' } });
     res.json({ data: r.data, message: 'Pairing posted', timestamp: new Date().toISOString() } as APIResponse);
   } catch (error: any) {
+    logger.error('Failed to post pairing', { error: error.message, invoiceId: req.params.id, status: error.response?.status });
     res.status(error.response?.status || 500).json({ error: {
-      message: error.response?.data?.error || 'Failed to post pairing',
+      message: error.response?.data?.error?.message || error.response?.data?.error || 'Failed to post pairing',
       statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
   }
 }));
