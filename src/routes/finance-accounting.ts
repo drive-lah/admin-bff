@@ -2449,6 +2449,13 @@ financeAccountingRouter.get('/accounting/payout-recipients/channels', requireMod
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to list payment channels'); }
 }));
+financeAccountingRouter.get('/accounting/payout-recipients/account-requirements', requireModuleAccess('finance.payouts', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${PAYOUT_RECIP_BASE()}/account-requirements`, { timeout: 30000, headers: defaultHeaders,
+      params: { currency: req.query.currency, source: req.query.source } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to fetch account requirements'); }
+}));
 financeAccountingRouter.get('/accounting/payout-recipients', requireModuleAccess('finance.payouts', 'read'), asyncHandler(async (req: any, res: any) => {
   try {
     const r = await axios.get(`${PAYOUT_RECIP_BASE()}`, { timeout: 30000, headers: defaultHeaders,
