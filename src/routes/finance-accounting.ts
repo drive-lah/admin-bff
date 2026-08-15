@@ -1835,6 +1835,17 @@ financeAccountingRouter.post('/accounting/invoices/:id/reject', asyncHandler(asy
   }
 }));
 
+// POST /accounting/invoices/:id/mark-paid-already — paid outside the system → reconcile (POL-135)
+financeAccountingRouter.post('/accounting/invoices/:id/mark-paid-already', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${req.params.id}/mark-paid-already`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Marked paid (reconciling)', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to mark paid', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // POST /accounting/invoices/:id/void
 financeAccountingRouter.post('/accounting/invoices/:id/void', asyncHandler(async (req: any, res: any) => {
   try {
