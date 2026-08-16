@@ -27,6 +27,39 @@ const defaultHeaders = {
 // Entities
 // ---------------------------------------------------------------------------
 
+// ── FX rates: load the month from ECB/Frankfurter, report coverage, manual upsert ──
+// GATED: writes rewrite the rate table that ALL payroll/foreign postings price from → finance.ledger
+// write; the coverage read → finance.ledger read. (Previously ungated — any authed user could rewrite.)
+// POST /accounting/fx-rates/load  {month?}
+financeAccountingRouter.post('/accounting/fx-rates/load', requireModuleAccess('finance.ledger', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const response = await axios.post(`${FINANCE_API_BASE()}/fx-rates/load`, req.body || {}, { timeout: 45000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'FX rates loaded', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'FX load failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } });
+  }
+}));
+
+// GET /accounting/fx-rates/status?month=YYYY-MM
+financeAccountingRouter.get('/accounting/fx-rates/status', requireModuleAccess('finance.ledger', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const response = await axios.get(`${FINANCE_API_BASE()}/fx-rates/status`, { params: req.query, timeout: 30000, headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' } });
+    res.json({ data: response.data, message: 'FX coverage', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'FX status failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } });
+  }
+}));
+
+// POST /accounting/fx-rates  {month, from_currency, to_currency, rate}  — manual entry (BDT/PKR etc.)
+financeAccountingRouter.post('/accounting/fx-rates', requireModuleAccess('finance.ledger', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const response = await axios.post(`${FINANCE_API_BASE()}/fx-rates`, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'FX rate saved', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'FX save failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } });
+  }
+}));
+
 // GET /accounting/entities
 financeAccountingRouter.get('/accounting/entities', asyncHandler(async (req: any, res: any) => {
   logger.info('Fetching entities from finance API');
@@ -1835,6 +1868,17 @@ financeAccountingRouter.post('/accounting/invoices/:id/reject', asyncHandler(asy
   }
 }));
 
+// POST /accounting/invoices/:id/mark-paid-already — paid outside the system → reconcile (POL-135)
+financeAccountingRouter.post('/accounting/invoices/:id/mark-paid-already', requireModuleAccess('finance.invoices', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const url = `${FINANCE_API_BASE()}/invoices/${req.params.id}/mark-paid-already`;
+    const response = await axios.post(url, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'Marked paid (reconciling)', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'Failed to mark paid', statusCode: error.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+  }
+}));
+
 // POST /accounting/invoices/:id/void
 financeAccountingRouter.post('/accounting/invoices/:id/void', asyncHandler(async (req: any, res: any) => {
   try {
@@ -2203,6 +2247,43 @@ financeAccountingRouter.get('/hr/employees', asyncHandler(async (req: any, res: 
   }
 }));
 
+// ── Payroll runs (PR-1..6): list/detail/items/create/adjust/approval/fan-out. All under the /hr gate. ──
+const pr = (p: string) => `${HR_API_BASE()}/payroll-runs${p}`;
+const prErr = (res: any, req: any, e: any, m: string) => {
+  // log every payroll failure server-side (was invisible before) — mirror payoutError
+  logger.error(`Payroll proxy failure: ${m}`, { status: e.response?.status, upstream: e.response?.data?.error || e.message, path: req.path, method: req.method });
+  return res.status(e.response?.status || 500).json({ error: { message: e.response?.data?.error || m, statusCode: e.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+};
+financeAccountingRouter.get('/hr/payroll-runs', asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.get(pr(''), { timeout: 30000, headers: defaultHeaders, params: req.query }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to list payroll runs'); }
+}));
+financeAccountingRouter.post('/hr/payroll-runs', requireModuleAccess('hr', 'write'), asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.post(pr(''), req.body, { timeout: 60000, headers: actorHeaders(req) }); res.status(201).json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to create payroll run'); }
+}));
+financeAccountingRouter.get('/hr/payroll-runs/:id/items', asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.get(pr(`/${req.params.id}/items`), { timeout: 30000, headers: defaultHeaders }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to load payroll items'); }
+}));
+financeAccountingRouter.get('/hr/payroll-runs/:id/approval-view', asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.get(pr(`/${req.params.id}/approval-view`), { timeout: 30000, headers: defaultHeaders }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to load approval view'); }
+}));
+financeAccountingRouter.post('/hr/payroll-runs/:id/lines/:item/adjust', requireModuleAccess('hr', 'write'), asyncHandler(async (req: any, res: any) => {
+  try { const r = await axios.post(pr(`/${req.params.id}/lines/${req.params.item}/adjust`), req.body, { timeout: 30000, headers: actorHeaders(req) }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+  catch (e: any) { prErr(res, req, e, 'Failed to adjust line'); }
+}));
+for (const action of ['submit-for-approval', 'approve-group', 'fan-out', 'void']) {
+  // Payroll mutations move money / sign off — gate on finance.payroll, admin for the disbursement steps
+  // (approve-group + fan-out), write for submit/void. (Was only the blanket /hr read gate.)
+  const level = (action === 'approve-group' || action === 'fan-out') ? 'admin' : 'write';
+  financeAccountingRouter.post(`/hr/payroll-runs/:id/${action}`, requireModuleAccess('hr', level as any), asyncHandler(async (req: any, res: any) => {
+    try { const r = await axios.post(pr(`/${req.params.id}/${action}`), req.body || {}, { timeout: 60000, headers: actorHeaders(req) }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
+    catch (e: any) { prErr(res, req, e, `Failed: ${action}`); }
+  }));
+}
+
 // GET /hr/employees/:id — get single HR employee
 financeAccountingRouter.get('/hr/employees/:id', asyncHandler(async (req: any, res: any) => {
   try {
@@ -2321,7 +2402,9 @@ function actorHeaders(req: any) {
     'X-User-Id': String(u.id ?? u.email ?? 'ui'),
     'X-User-Email': String(u.email ?? ''),
     'X-User-Role': String(u.role ?? ''),
-    'X-Forwarded-For': (req.headers['x-forwarded-for'] as string) || req.ip || '',
+    // req.ip (Express, behind trust-proxy) — NOT the raw client-supplied X-Forwarded-For, which is
+    // spoofable and would land a forged IP in the finance-api audit trail.
+    'X-Forwarded-For': String(req.ip || ''),
   };
 }
 function payoutError(res: any, req: any, error: any, msg: string) {
@@ -2360,6 +2443,22 @@ financeAccountingRouter.get('/accounting/payouts/payable-invoices', asyncHandler
       timeout: 30000, headers: defaultHeaders, params: { entity_id: req.query.entity_id } });
     res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to load payable invoices'); }
+}));
+
+// POL-139 cat 4: approved employee claims awaiting reimbursement (finance payment queue). Registered
+// BEFORE '/accounting/payouts/:id' so 'claim-payables' isn't captured as an :id.
+financeAccountingRouter.get('/accounting/payouts/claim-payables', asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${PAYOUTS_BASE()}/claim-payables`, {
+      timeout: 30000, headers: defaultHeaders, params: { entity_id: req.query.entity_id } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to load claim payables'); }
+}));
+financeAccountingRouter.post('/accounting/payouts/claim', requireModuleAccess('finance.payouts', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.post(`${PAYOUTS_BASE()}/claim`, req.body, { timeout: 60000, headers: actorHeaders(req) });
+    res.status(201).json({ data: r.data, message: 'Claim reimbursement raised', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to raise claim reimbursement'); }
 }));
 
 financeAccountingRouter.get('/accounting/payouts', asyncHandler(async (req: any, res: any) => {
@@ -2427,6 +2526,49 @@ financeAccountingRouter.delete('/accounting/payee-bank-accounts/:id', requireMod
     const r = await axios.delete(`${PAYEE_BANK_BASE()}/${req.params.id}`, { timeout: 30000, headers: actorHeaders(req) });
     res.json({ data: r.data, message: 'Bank account deleted', timestamp: new Date().toISOString() } as APIResponse);
   } catch (e: any) { payoutError(res, req, e, 'Failed to delete bank account'); }
+}));
+
+// ── Payout recipients (PM-6, POL-127): counterparty bank accounts + per-channel Wise registrations.
+// Our system is master; add pushes to Wise, edit supersedes, delete deactivates — all audited server-side.
+const PAYOUT_RECIP_BASE = () => `${config.financeApiUrl}/api/finance/payout-recipients`;
+financeAccountingRouter.get('/accounting/payout-recipients/channels', requireModuleAccess('finance.payouts', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${PAYOUT_RECIP_BASE()}/channels`, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to list payment channels'); }
+}));
+financeAccountingRouter.get('/accounting/payout-recipients/account-requirements', requireModuleAccess('finance.payouts', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${PAYOUT_RECIP_BASE()}/account-requirements`, { timeout: 30000, headers: defaultHeaders,
+      params: { currency: req.query.currency, source: req.query.source } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to fetch account requirements'); }
+}));
+financeAccountingRouter.get('/accounting/payout-recipients', requireModuleAccess('finance.payouts', 'read'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.get(`${PAYOUT_RECIP_BASE()}`, { timeout: 30000, headers: defaultHeaders,
+      params: { counterparty_id: req.query.counterparty_id } });
+    res.json({ data: r.data, timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to list bank accounts'); }
+}));
+financeAccountingRouter.post('/accounting/payout-recipients', requireModuleAccess('finance.payouts', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.post(`${PAYOUT_RECIP_BASE()}`, req.body, { timeout: 30000, headers: actorHeaders(req) });
+    res.status(201).json({ data: r.data, message: 'Bank account registered', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to register bank account'); }
+}));
+financeAccountingRouter.put('/accounting/payout-recipients/:id', requireModuleAccess('finance.payouts', 'write'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.put(`${PAYOUT_RECIP_BASE()}/${req.params.id}`, req.body, { timeout: 30000, headers: actorHeaders(req) });
+    res.json({ data: r.data, message: 'Bank account updated (recipient superseded)', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to update bank account'); }
+}));
+financeAccountingRouter.delete('/accounting/payout-recipients/:id', requireModuleAccess('finance.payouts', 'admin'), asyncHandler(async (req: any, res: any) => {
+  try {
+    const r = await axios.delete(`${PAYOUT_RECIP_BASE()}/${req.params.id}`, { timeout: 30000, headers: actorHeaders(req),
+      params: { delete_in_wise: req.query.delete_in_wise } });
+    res.json({ data: r.data, message: 'Bank account deactivated', timestamp: new Date().toISOString() } as APIResponse);
+  } catch (e: any) { payoutError(res, req, e, 'Failed to deactivate bank account'); }
 }));
 
 // ── Employee Claims (#5/#6) — own-scoped; forwards caller identity + admin flag ──────────
