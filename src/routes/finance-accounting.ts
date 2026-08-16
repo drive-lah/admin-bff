@@ -27,6 +27,37 @@ const defaultHeaders = {
 // Entities
 // ---------------------------------------------------------------------------
 
+// ── FX rates: load the month from ECB/Frankfurter, report coverage, manual upsert ──
+// POST /accounting/fx-rates/load  {month?}
+financeAccountingRouter.post('/accounting/fx-rates/load', asyncHandler(async (req: any, res: any) => {
+  try {
+    const response = await axios.post(`${FINANCE_API_BASE()}/fx-rates/load`, req.body || {}, { timeout: 45000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'FX rates loaded', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'FX load failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } });
+  }
+}));
+
+// GET /accounting/fx-rates/status?month=YYYY-MM
+financeAccountingRouter.get('/accounting/fx-rates/status', asyncHandler(async (req: any, res: any) => {
+  try {
+    const response = await axios.get(`${FINANCE_API_BASE()}/fx-rates/status`, { params: req.query, timeout: 30000, headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' } });
+    res.json({ data: response.data, message: 'FX coverage', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: 'FX status failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } });
+  }
+}));
+
+// POST /accounting/fx-rates  {month, from_currency, to_currency, rate}  — manual entry (BDT/PKR etc.)
+financeAccountingRouter.post('/accounting/fx-rates', asyncHandler(async (req: any, res: any) => {
+  try {
+    const response = await axios.post(`${FINANCE_API_BASE()}/fx-rates`, req.body, { timeout: 30000, headers: defaultHeaders });
+    res.json({ data: response.data, message: 'FX rate saved', timestamp: new Date().toISOString() });
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: { message: error.response?.data?.error || 'FX save failed', statusCode: error.response?.status || 500, timestamp: new Date().toISOString() } });
+  }
+}));
+
 // GET /accounting/entities
 financeAccountingRouter.get('/accounting/entities', asyncHandler(async (req: any, res: any) => {
   logger.info('Fetching entities from finance API');
