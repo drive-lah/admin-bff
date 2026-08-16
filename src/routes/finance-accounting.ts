@@ -28,8 +28,10 @@ const defaultHeaders = {
 // ---------------------------------------------------------------------------
 
 // ── FX rates: load the month from ECB/Frankfurter, report coverage, manual upsert ──
+// GATED: writes rewrite the rate table that ALL payroll/foreign postings price from → finance.ledger
+// write; the coverage read → finance.ledger read. (Previously ungated — any authed user could rewrite.)
 // POST /accounting/fx-rates/load  {month?}
-financeAccountingRouter.post('/accounting/fx-rates/load', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.post('/accounting/fx-rates/load', requireModuleAccess('finance.ledger', 'write'), asyncHandler(async (req: any, res: any) => {
   try {
     const response = await axios.post(`${FINANCE_API_BASE()}/fx-rates/load`, req.body || {}, { timeout: 45000, headers: defaultHeaders });
     res.json({ data: response.data, message: 'FX rates loaded', timestamp: new Date().toISOString() });
@@ -39,7 +41,7 @@ financeAccountingRouter.post('/accounting/fx-rates/load', asyncHandler(async (re
 }));
 
 // GET /accounting/fx-rates/status?month=YYYY-MM
-financeAccountingRouter.get('/accounting/fx-rates/status', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.get('/accounting/fx-rates/status', requireModuleAccess('finance.ledger', 'read'), asyncHandler(async (req: any, res: any) => {
   try {
     const response = await axios.get(`${FINANCE_API_BASE()}/fx-rates/status`, { params: req.query, timeout: 30000, headers: { 'User-Agent': 'Drivelah-Admin-BFF/1.0.0' } });
     res.json({ data: response.data, message: 'FX coverage', timestamp: new Date().toISOString() });
@@ -49,7 +51,7 @@ financeAccountingRouter.get('/accounting/fx-rates/status', asyncHandler(async (r
 }));
 
 // POST /accounting/fx-rates  {month, from_currency, to_currency, rate}  — manual entry (BDT/PKR etc.)
-financeAccountingRouter.post('/accounting/fx-rates', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.post('/accounting/fx-rates', requireModuleAccess('finance.ledger', 'write'), asyncHandler(async (req: any, res: any) => {
   try {
     const response = await axios.post(`${FINANCE_API_BASE()}/fx-rates`, req.body, { timeout: 30000, headers: defaultHeaders });
     res.json({ data: response.data, message: 'FX rate saved', timestamp: new Date().toISOString() });
@@ -2247,12 +2249,16 @@ financeAccountingRouter.get('/hr/employees', asyncHandler(async (req: any, res: 
 
 // ── Payroll runs (PR-1..6): list/detail/items/create/adjust/approval/fan-out. All under the /hr gate. ──
 const pr = (p: string) => `${HR_API_BASE()}/payroll-runs${p}`;
-const prErr = (res: any, req: any, e: any, m: string) => res.status(e.response?.status || 500).json({ error: { message: e.response?.data?.error || m, statusCode: e.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+const prErr = (res: any, req: any, e: any, m: string) => {
+  // log every payroll failure server-side (was invisible before) — mirror payoutError
+  logger.error(`Payroll proxy failure: ${m}`, { status: e.response?.status, upstream: e.response?.data?.error || e.message, path: req.path, method: req.method });
+  return res.status(e.response?.status || 500).json({ error: { message: e.response?.data?.error || m, statusCode: e.response?.status || 500, timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+};
 financeAccountingRouter.get('/hr/payroll-runs', asyncHandler(async (req: any, res: any) => {
   try { const r = await axios.get(pr(''), { timeout: 30000, headers: defaultHeaders, params: req.query }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
   catch (e: any) { prErr(res, req, e, 'Failed to list payroll runs'); }
 }));
-financeAccountingRouter.post('/hr/payroll-runs', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.post('/hr/payroll-runs', requireModuleAccess('finance.payroll', 'write'), asyncHandler(async (req: any, res: any) => {
   try { const r = await axios.post(pr(''), req.body, { timeout: 60000, headers: actorHeaders(req) }); res.status(201).json({ data: r.data, timestamp: new Date().toISOString() }); }
   catch (e: any) { prErr(res, req, e, 'Failed to create payroll run'); }
 }));
@@ -2264,12 +2270,15 @@ financeAccountingRouter.get('/hr/payroll-runs/:id/approval-view', asyncHandler(a
   try { const r = await axios.get(pr(`/${req.params.id}/approval-view`), { timeout: 30000, headers: defaultHeaders }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
   catch (e: any) { prErr(res, req, e, 'Failed to load approval view'); }
 }));
-financeAccountingRouter.post('/hr/payroll-runs/:id/lines/:item/adjust', asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.post('/hr/payroll-runs/:id/lines/:item/adjust', requireModuleAccess('finance.payroll', 'write'), asyncHandler(async (req: any, res: any) => {
   try { const r = await axios.post(pr(`/${req.params.id}/lines/${req.params.item}/adjust`), req.body, { timeout: 30000, headers: actorHeaders(req) }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
   catch (e: any) { prErr(res, req, e, 'Failed to adjust line'); }
 }));
-for (const action of ['submit-for-approval', 'approve-group', 'fan-out']) {
-  financeAccountingRouter.post(`/hr/payroll-runs/:id/${action}`, asyncHandler(async (req: any, res: any) => {
+for (const action of ['submit-for-approval', 'approve-group', 'fan-out', 'void']) {
+  // Payroll mutations move money / sign off — gate on finance.payroll, admin for the disbursement steps
+  // (approve-group + fan-out), write for submit/void. (Was only the blanket /hr read gate.)
+  const level = (action === 'approve-group' || action === 'fan-out') ? 'admin' : 'write';
+  financeAccountingRouter.post(`/hr/payroll-runs/:id/${action}`, requireModuleAccess('finance.payroll', level as any), asyncHandler(async (req: any, res: any) => {
     try { const r = await axios.post(pr(`/${req.params.id}/${action}`), req.body || {}, { timeout: 60000, headers: actorHeaders(req) }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
     catch (e: any) { prErr(res, req, e, `Failed: ${action}`); }
   }));
@@ -2393,7 +2402,9 @@ function actorHeaders(req: any) {
     'X-User-Id': String(u.id ?? u.email ?? 'ui'),
     'X-User-Email': String(u.email ?? ''),
     'X-User-Role': String(u.role ?? ''),
-    'X-Forwarded-For': (req.headers['x-forwarded-for'] as string) || req.ip || '',
+    // req.ip (Express, behind trust-proxy) — NOT the raw client-supplied X-Forwarded-For, which is
+    // spoofable and would land a forged IP in the finance-api audit trail.
+    'X-Forwarded-For': String(req.ip || ''),
   };
 }
 function payoutError(res: any, req: any, error: any, msg: string) {
