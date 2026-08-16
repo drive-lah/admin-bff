@@ -2258,7 +2258,7 @@ financeAccountingRouter.get('/hr/payroll-runs', asyncHandler(async (req: any, re
   try { const r = await axios.get(pr(''), { timeout: 30000, headers: defaultHeaders, params: req.query }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
   catch (e: any) { prErr(res, req, e, 'Failed to list payroll runs'); }
 }));
-financeAccountingRouter.post('/hr/payroll-runs', requireModuleAccess('finance.payroll', 'write'), asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.post('/hr/payroll-runs', requireModuleAccess('hr', 'write'), asyncHandler(async (req: any, res: any) => {
   try { const r = await axios.post(pr(''), req.body, { timeout: 60000, headers: actorHeaders(req) }); res.status(201).json({ data: r.data, timestamp: new Date().toISOString() }); }
   catch (e: any) { prErr(res, req, e, 'Failed to create payroll run'); }
 }));
@@ -2270,7 +2270,7 @@ financeAccountingRouter.get('/hr/payroll-runs/:id/approval-view', asyncHandler(a
   try { const r = await axios.get(pr(`/${req.params.id}/approval-view`), { timeout: 30000, headers: defaultHeaders }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
   catch (e: any) { prErr(res, req, e, 'Failed to load approval view'); }
 }));
-financeAccountingRouter.post('/hr/payroll-runs/:id/lines/:item/adjust', requireModuleAccess('finance.payroll', 'write'), asyncHandler(async (req: any, res: any) => {
+financeAccountingRouter.post('/hr/payroll-runs/:id/lines/:item/adjust', requireModuleAccess('hr', 'write'), asyncHandler(async (req: any, res: any) => {
   try { const r = await axios.post(pr(`/${req.params.id}/lines/${req.params.item}/adjust`), req.body, { timeout: 30000, headers: actorHeaders(req) }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
   catch (e: any) { prErr(res, req, e, 'Failed to adjust line'); }
 }));
@@ -2278,7 +2278,7 @@ for (const action of ['submit-for-approval', 'approve-group', 'fan-out', 'void']
   // Payroll mutations move money / sign off — gate on finance.payroll, admin for the disbursement steps
   // (approve-group + fan-out), write for submit/void. (Was only the blanket /hr read gate.)
   const level = (action === 'approve-group' || action === 'fan-out') ? 'admin' : 'write';
-  financeAccountingRouter.post(`/hr/payroll-runs/:id/${action}`, requireModuleAccess('finance.payroll', level as any), asyncHandler(async (req: any, res: any) => {
+  financeAccountingRouter.post(`/hr/payroll-runs/:id/${action}`, requireModuleAccess('hr', level as any), asyncHandler(async (req: any, res: any) => {
     try { const r = await axios.post(pr(`/${req.params.id}/${action}`), req.body || {}, { timeout: 60000, headers: actorHeaders(req) }); res.json({ data: r.data, timestamp: new Date().toISOString() }); }
     catch (e: any) { prErr(res, req, e, `Failed: ${action}`); }
   }));
