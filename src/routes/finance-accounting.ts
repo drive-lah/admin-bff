@@ -1647,7 +1647,7 @@ financeAccountingRouter.get('/accounting/periods',
       const qs = req.query.entity_id ? `?entity_id=${encodeURIComponent(String(req.query.entity_id))}` : '';
       const response = await axios.get(`${FINANCE_API_BASE()}/periods${qs}`,
         { timeout: 30000, headers: defaultHeaders });
-      res.json(response.data);
+      res.json({ data: response.data, message: 'ok', timestamp: new Date().toISOString() });
     } catch (error: any) {
       logger.error('Failed to fetch period locks', { error: error.message });
       res.status(error.response?.status || 500).json({
@@ -1665,7 +1665,7 @@ financeAccountingRouter.get('/accounting/periods/months',
       if (req.query.year) qs.set('year', String(req.query.year));
       const response = await axios.get(`${FINANCE_API_BASE()}/periods/months?${qs}`,
         { timeout: 30000, headers: defaultHeaders });
-      res.json(response.data);
+      res.json({ data: response.data, message: 'ok', timestamp: new Date().toISOString() });
     } catch (error: any) {
       logger.error('Failed to fetch period months', { error: error.message });
       res.status(error.response?.status || 500).json({
@@ -1683,7 +1683,7 @@ financeAccountingRouter.post('/accounting/periods/lock',
         headers: { ...defaultHeaders, 'X-User-Email': req.user?.email || '' },
       });
       logger.info('Period locked', { user: req.user?.email, body: req.body });
-      res.json(response.data);
+      res.json({ data: response.data, message: 'ok', timestamp: new Date().toISOString() });
     } catch (error: any) {
       logger.error('Failed to lock period', { error: error.message });
       res.status(error.response?.status || 500).json({
@@ -1703,7 +1703,7 @@ financeAccountingRouter.post('/accounting/periods/unlock',
         headers: { ...defaultHeaders, 'X-User-Email': req.user?.email || '', 'X-User-Role': 'admin' },
       });
       logger.warn('Period UNLOCKED', { user: req.user?.email, body: req.body });
-      res.json(response.data);
+      res.json({ data: response.data, message: 'ok', timestamp: new Date().toISOString() });
     } catch (error: any) {
       logger.error('Failed to unlock period', { error: error.message });
       res.status(error.response?.status || 500).json({
@@ -1723,7 +1723,7 @@ financeAccountingRouter.get('/accounting/amortization/overview',
       if (req.query.entity_id) qs.set('entity_id', String(req.query.entity_id));
       const url = `${FINANCE_API_BASE()}/amortization/overview${qs.toString() ? `?${qs}` : ''}`;
       const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
-      res.json(response.data);
+      res.json({ data: response.data, message: 'ok', timestamp: new Date().toISOString() });
     } catch (error: any) {
       logger.error('Failed to fetch amortization overview', { error: error.message });
       res.status(error.response?.status || 500).json({
@@ -1741,7 +1741,7 @@ financeAccountingRouter.post('/accounting/amortization/run',
     try {
       const url = `${FINANCE_API_BASE()}/amortization/run`;
       const response = await axios.post(url, req.body || {}, { timeout: 120000, headers: defaultHeaders });
-      res.json(response.data);
+      res.json({ data: response.data, message: 'ok', timestamp: new Date().toISOString() });
     } catch (error: any) {
       logger.error('Failed to run amortization cycle', { error: error.message });
       res.status(error.response?.status || 500).json({
@@ -1759,7 +1759,7 @@ financeAccountingRouter.get('/accounting/amortization/policies',
     try {
       const response = await axios.get(`${FINANCE_API_BASE()}/amortization/policies`,
         { timeout: 30000, headers: defaultHeaders });
-      res.json(response.data);
+      res.json({ data: response.data, message: 'ok', timestamp: new Date().toISOString() });
     } catch (error: any) {
       logger.error('Failed to fetch amortization policies', { error: error.message });
       res.status(error.response?.status || 500).json({
