@@ -1639,6 +1639,80 @@ financeAccountingRouter.get('/accounting/coa-config', asyncHandler(async (req: a
   }
 }));
 
+// ── Period locks (STATUS 2.0g): entity x month; unlock is ADMIN ONLY ────────
+financeAccountingRouter.get('/accounting/periods',
+  requireModuleAccess('finance.ledger', 'read'),
+  asyncHandler(async (req: any, res: any) => {
+    try {
+      const qs = req.query.entity_id ? `?entity_id=${encodeURIComponent(String(req.query.entity_id))}` : '';
+      const response = await axios.get(`${FINANCE_API_BASE()}/periods${qs}`,
+        { timeout: 30000, headers: defaultHeaders });
+      res.json(response.data);
+    } catch (error: any) {
+      logger.error('Failed to fetch period locks', { error: error.message });
+      res.status(error.response?.status || 500).json({
+        error: { message: 'Failed to fetch period locks', statusCode: error.response?.status || 500,
+                 timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+    }
+  }));
+
+financeAccountingRouter.get('/accounting/periods/months',
+  requireModuleAccess('finance.ledger', 'read'),
+  asyncHandler(async (req: any, res: any) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.entity_id) qs.set('entity_id', String(req.query.entity_id));
+      if (req.query.year) qs.set('year', String(req.query.year));
+      const response = await axios.get(`${FINANCE_API_BASE()}/periods/months?${qs}`,
+        { timeout: 30000, headers: defaultHeaders });
+      res.json(response.data);
+    } catch (error: any) {
+      logger.error('Failed to fetch period months', { error: error.message });
+      res.status(error.response?.status || 500).json({
+        error: { message: 'Failed to fetch period months', statusCode: error.response?.status || 500,
+                 timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+    }
+  }));
+
+financeAccountingRouter.post('/accounting/periods/lock',
+  requireModuleAccess('finance.ledger', 'write'),
+  asyncHandler(async (req: any, res: any) => {
+    try {
+      const response = await axios.post(`${FINANCE_API_BASE()}/periods/lock`, req.body || {}, {
+        timeout: 30000,
+        headers: { ...defaultHeaders, 'X-User-Email': req.user?.email || '' },
+      });
+      logger.info('Period locked', { user: req.user?.email, body: req.body });
+      res.json(response.data);
+    } catch (error: any) {
+      logger.error('Failed to lock period', { error: error.message });
+      res.status(error.response?.status || 500).json({
+        error: { message: error.response?.data?.error?.message || error.response?.data?.error || 'Failed to lock period',
+                 statusCode: error.response?.status || 500,
+                 timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+    }
+  }));
+
+// ADMIN ONLY (Gaurav 2026-08-17): reopening a closed period must leave a mark.
+financeAccountingRouter.post('/accounting/periods/unlock',
+  requireModuleAccess('finance.ledger', 'admin'),
+  asyncHandler(async (req: any, res: any) => {
+    try {
+      const response = await axios.post(`${FINANCE_API_BASE()}/periods/unlock`, req.body || {}, {
+        timeout: 30000,
+        headers: { ...defaultHeaders, 'X-User-Email': req.user?.email || '', 'X-User-Role': 'admin' },
+      });
+      logger.warn('Period UNLOCKED', { user: req.user?.email, body: req.body });
+      res.json(response.data);
+    } catch (error: any) {
+      logger.error('Failed to unlock period', { error: error.message });
+      res.status(error.response?.status || 500).json({
+        error: { message: error.response?.data?.error?.message || error.response?.data?.error || 'Failed to unlock period',
+                 statusCode: error.response?.status || 500,
+                 timestamp: new Date().toISOString(), path: req.path, method: req.method } });
+    }
+  }));
+
 // GET /accounting/amortization/overview — DA-6 unified view (assets + prepaids, one list)
 financeAccountingRouter.get('/accounting/amortization/overview',
   requireModuleAccess('finance.ledger', 'read'),
