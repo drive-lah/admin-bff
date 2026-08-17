@@ -1639,6 +1639,63 @@ financeAccountingRouter.get('/accounting/coa-config', asyncHandler(async (req: a
   }
 }));
 
+// GET /accounting/amortization/overview — DA-6 unified view (assets + prepaids, one list)
+financeAccountingRouter.get('/accounting/amortization/overview',
+  requireModuleAccess('finance.ledger', 'read'),
+  asyncHandler(async (req: any, res: any) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.type) qs.set('type', String(req.query.type));
+      if (req.query.entity_id) qs.set('entity_id', String(req.query.entity_id));
+      const url = `${FINANCE_API_BASE()}/amortization/overview${qs.toString() ? `?${qs}` : ''}`;
+      const response = await axios.get(url, { timeout: 30000, headers: defaultHeaders });
+      res.json(response.data);
+    } catch (error: any) {
+      logger.error('Failed to fetch amortization overview', { error: error.message });
+      res.status(error.response?.status || 500).json({
+        error: { message: error.response?.data?.error || 'Failed to fetch amortization overview',
+                 statusCode: error.response?.status || 500,
+                 timestamp: new Date().toISOString(), path: req.path, method: req.method },
+      });
+    }
+  }));
+
+// POST /accounting/amortization/run — month-lock cycle (assets age + prepaids release)
+financeAccountingRouter.post('/accounting/amortization/run',
+  requireModuleAccess('finance.ledger', 'write'),
+  asyncHandler(async (req: any, res: any) => {
+    try {
+      const url = `${FINANCE_API_BASE()}/amortization/run`;
+      const response = await axios.post(url, req.body || {}, { timeout: 120000, headers: defaultHeaders });
+      res.json(response.data);
+    } catch (error: any) {
+      logger.error('Failed to run amortization cycle', { error: error.message });
+      res.status(error.response?.status || 500).json({
+        error: { message: error.response?.data?.error || 'Failed to run amortization cycle',
+                 statusCode: error.response?.status || 500,
+                 timestamp: new Date().toISOString(), path: req.path, method: req.method },
+      });
+    }
+  }));
+
+// GET /accounting/amortization/policies — the rulebook (read)
+financeAccountingRouter.get('/accounting/amortization/policies',
+  requireModuleAccess('finance.ledger', 'read'),
+  asyncHandler(async (req: any, res: any) => {
+    try {
+      const response = await axios.get(`${FINANCE_API_BASE()}/amortization/policies`,
+        { timeout: 30000, headers: defaultHeaders });
+      res.json(response.data);
+    } catch (error: any) {
+      logger.error('Failed to fetch amortization policies', { error: error.message });
+      res.status(error.response?.status || 500).json({
+        error: { message: 'Failed to fetch amortization policies',
+                 statusCode: error.response?.status || 500,
+                 timestamp: new Date().toISOString(), path: req.path, method: req.method },
+      });
+    }
+  }));
+
 // GET /accounting/my-requests — the logged-in user's OWN raised items (Track). Scoped to req.user
 // PR-9 ruling: any authenticated finance user may call this — the self-scoping IS the gate.
 // server-side so a user can only see their own; client params are ignored.
