@@ -1532,9 +1532,12 @@ financeAccountingRouter.post('/accounting/counterparties/sync/employees', asyncH
 // GET /accounting/invoices
 financeAccountingRouter.get('/accounting/invoices', asyncHandler(async (req: any, res: any) => {
   try {
+    // status accepts a comma-separated list (e.g. "pending_approval,approved"); sort_by is one of
+    // invoice_date | uploaded_at | total_amount | id, with sort_dir asc|desc (Gaurav 2026-08-18)
     const passthrough = ['entity_id','status','counterparty_id','search','vendor_flag','coa_flag',
       'document_gate','currency_flag','retool_status','sub_category','amount_match','provisional_paid',
-      'retool_id','is_duplicate','amount_min','amount_max','paired','limit','offset'];
+      'retool_id','is_duplicate','amount_min','amount_max','paired','limit','offset',
+      'sort_by','sort_dir'];
     const params = new URLSearchParams();
     for (const k of passthrough) { if (req.query[k]) params.append(k, req.query[k] as string); }
     const url = `${FINANCE_API_BASE()}/invoices${params.toString() ? '?' + params.toString() : ''}`;
